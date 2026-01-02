@@ -37,6 +37,15 @@ export function convertContentToParts(content, isClaudeModel = false, isGeminiMo
     const parts = [];
 
     for (const block of content) {
+        if (!block) continue;
+
+        // Skip 'thinking' blocks for Gemini requests
+        // We cannot reliably cache signatures for them, and sending back unsigned thinking blocks
+        // causes "Corrupted thought signature" errors.
+        if (isGeminiModel && (block.type === 'thinking' || block.type === 'thought')) {
+            continue;
+        }
+
         if (block.type === 'text') {
             // Skip empty text blocks - they cause API errors
             if (block.text && block.text.trim()) {
@@ -106,7 +115,9 @@ export function convertContentToParts(content, isClaudeModel = false, isGeminiMo
                     }
                 }
 
-                part.thoughtSignature = signature || GEMINI_SKIP_SIGNATURE;
+                if (signature) {
+                    part.thoughtSignature = signature;
+                }
             }
 
             parts.push(part);

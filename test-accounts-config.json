@@ -1,0 +1,34 @@
+{
+  "accounts": [
+    {
+      "email": "acc1@test.com",
+      "source": "manual",
+      "dbPath": null,
+      "apiKey": "key1",
+      "isRateLimited": false,
+      "rateLimitResetTime": null,
+      "modelRateLimits": {
+        "claude-3-5-sonnet-20241022": 1767373549006
+      },
+      "isInvalid": false,
+      "invalidReason": null,
+      "lastUsed": null
+    },
+    {
+      "email": "acc2@test.com",
+      "source": "manual",
+      "dbPath": null,
+      "apiKey": "key2",
+      "isRateLimited": true,
+      "rateLimitResetTime": 1767373549006,
+      "modelRateLimits": {},
+      "isInvalid": false,
+      "invalidReason": null,
+      "lastUsed": 1767373544006
+    }
+  ],
+  "settings": {
+    "cooldownDurationMs": 1000
+  },
+  "activeIndex": 1
+}

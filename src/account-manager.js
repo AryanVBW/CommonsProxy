@@ -18,7 +18,7 @@ import {
     MAX_WAIT_BEFORE_ERROR_MS
 } from './constants.js';
 import { refreshAccessToken } from './oauth.js';
-import { formatDuration } from './utils/helpers.js';
+import { formatDuration, isNetworkError } from './utils/helpers.js';
 import { getAuthStatus } from './db/database.js';
 import { logger } from './utils/logger.js';
 
@@ -53,6 +53,8 @@ export class AccountManager {
                 ...acc,
                 isRateLimited: acc.isRateLimited || false,
                 rateLimitResetTime: acc.rateLimitResetTime || null,
+                // New: Per-model rate limits
+                modelRateLimits: acc.modelRateLimits || {}, // Map-like object: { "model-id": resetTimeMs }
                 lastUsed: acc.lastUsed || null
             }));
 
@@ -125,20 +127,41 @@ export class AccountManager {
     }
 
     /**
-     * Check if all accounts are rate-limited
+     * Helper: Check if an account is rate-limited for a specific model (or globally)
+     * @param {Object} account - Account object
+     * @param {string|null} modelId - Model ID (optional)
+     * @returns {boolean} True if rate-limited
+     */
+    isRateLimited(account, modelId = null) {
+        // Global limit blocks everything
+        if (account.isRateLimited) return true;
+        
+        // Model-specific limit
+        if (modelId && account.modelRateLimits && account.modelRateLimits[modelId]) {
+            return account.modelRateLimits[modelId] > Date.now();
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if all accounts are rate-limited (globally or for specific model)
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {boolean} True if all accounts are rate-limited
      */
-    isAllRateLimited() {
-        if (this.#accounts.length === 0) return true;
-        return this.#accounts.every(acc => acc.isRateLimited);
+    isAllRateLimited(modelId = null) {
+        const validAccounts = this.#accounts.filter(acc => !acc.isInvalid);
+        if (validAccounts.length === 0) return false; // All invalid, so not technically "rate limited"
+        return validAccounts.every(acc => this.isRateLimited(acc, modelId));
     }
 
     /**
      * Get list of available (non-rate-limited, non-invalid) accounts
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {Array<Object>} Array of available account objects
      */
-    getAvailableAccounts() {
-        return this.#accounts.filter(acc => !acc.isRateLimited && !acc.isInvalid);
+    getAvailableAccounts(modelId = null) {
+        return this.#accounts.filter(acc => !this.isRateLimited(acc, modelId) && !acc.isInvalid);
     }
 
     /**
@@ -158,10 +181,23 @@ export class AccountManager {
         let cleared = 0;
 
         for (const account of this.#accounts) {
+            // Check global limit
             if (account.isRateLimited && account.rateLimitResetTime && account.rateLimitResetTime <= now) {
                 account.rateLimitResetTime = null;
+                account.isRateLimited = false;
                 cleared++;
-                logger.success(`[AccountManager] Rate limit expired for: ${account.email}`);
+                logger.success(`[AccountManager] Global rate limit expired for: ${account.email}`);
+            }
+
+            // Check model limits
+            if (account.modelRateLimits) {
+                for (const [modelId, resetTime] of Object.entries(account.modelRateLimits)) {
+                    if (resetTime <= now) {
+                        delete account.modelRateLimits[modelId];
+                        cleared++;
+                        logger.success(`[AccountManager] Rate limit expired for: ${account.email} (model: ${modelId})`);
+                    }
+                }
             }
         }
 
@@ -180,10 +216,8 @@ export class AccountManager {
     resetAllRateLimits() {
         for (const account of this.#accounts) {
             account.isRateLimited = false;
-            // distinct from "clearing" expired limits, we blindly reset here
-            // we keep the time? User said "clear isRateLimited value, and rateLimitResetTime"
-            // So we clear both.
             account.rateLimitResetTime = null;
+            account.modelRateLimits = {};
         }
         logger.warn('[AccountManager] Reset all rate limits for optimistic retry');
     }
@@ -191,12 +225,13 @@ export class AccountManager {
     /**
      * Pick the next available account (fallback when current is unavailable).
      * Sets activeIndex to the selected account's index.
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {Object|null} The next available account or null if none available
      */
-    pickNext() {
+    pickNext(modelId = null) {
         this.clearExpiredLimits();
 
-        const available = this.getAvailableAccounts();
+        const available = this.getAvailableAccounts(modelId);
         if (available.length === 0) {
             return null;
         }
@@ -211,7 +246,7 @@ export class AccountManager {
             const idx = (this.#currentIndex + i) % this.#accounts.length;
             const account = this.#accounts[idx];
 
-            if (!account.isRateLimited && !account.isInvalid) {
+            if (!this.isRateLimited(account, modelId) && !account.isInvalid) {
                 // Set activeIndex to this account (not +1)
                 this.#currentIndex = idx;
                 account.lastUsed = Date.now();
@@ -233,9 +268,10 @@ export class AccountManager {
     /**
      * Get the current account without advancing the index (sticky selection).
      * Used for cache continuity - sticks to the same account until rate-limited.
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {Object|null} The current account or null if unavailable/rate-limited
      */
-    getCurrentStickyAccount() {
+    getCurrentStickyAccount(modelId = null) {
         this.clearExpiredLimits();
 
         if (this.#accounts.length === 0) {
@@ -251,7 +287,7 @@ export class AccountManager {
         const account = this.#accounts[this.#currentIndex];
 
         // Return if available
-        if (account && !account.isRateLimited && !account.isInvalid) {
+        if (account && !this.isRateLimited(account, modelId) && !account.isInvalid) {
             account.lastUsed = Date.now();
             // Persist the change (don't await to avoid blocking)
             this.saveToDisk();
@@ -264,9 +300,10 @@ export class AccountManager {
     /**
      * Check if we should wait for the current account's rate limit to reset.
      * Used for sticky account selection - wait if rate limit is short (≤ threshold).
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {{shouldWait: boolean, waitMs: number, account: Object|null}}
      */
-    shouldWaitForCurrentAccount() {
+    shouldWaitForCurrentAccount(modelId = null) {
         if (this.#accounts.length === 0) {
             return { shouldWait: false, waitMs: 0, account: null };
         }
@@ -283,13 +320,21 @@ export class AccountManager {
             return { shouldWait: false, waitMs: 0, account: null };
         }
 
+        let waitMs = 0;
+        
+        // Check global wait
         if (account.isRateLimited && account.rateLimitResetTime) {
-            const waitMs = account.rateLimitResetTime - Date.now();
+            waitMs = Math.max(waitMs, account.rateLimitResetTime - Date.now());
+        }
+        
+        // Check model wait
+        if (modelId && account.modelRateLimits && account.modelRateLimits[modelId]) {
+            waitMs = Math.max(waitMs, account.modelRateLimits[modelId] - Date.now());
+        }
 
-            // If wait time is within threshold, recommend waiting
-            if (waitMs > 0 && waitMs <= MAX_WAIT_BEFORE_ERROR_MS) {
-                return { shouldWait: true, waitMs, account };
-            }
+        // If wait time is within threshold, recommend waiting
+        if (waitMs > 0 && waitMs <= MAX_WAIT_BEFORE_ERROR_MS) {
+            return { shouldWait: true, waitMs, account };
         }
 
         return { shouldWait: false, waitMs: 0, account };
@@ -300,23 +345,22 @@ export class AccountManager {
      * Prefers the current account for cache continuity, only switches when:
      * - Current account is rate-limited for > 2 minutes
      * - Current account is invalid
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {{account: Object|null, waitMs: number}} Account to use and optional wait time
      */
-    pickStickyAccount() {
+    pickStickyAccount(modelId = null) {
         // First try to get the current sticky account
-        const stickyAccount = this.getCurrentStickyAccount();
+        const stickyAccount = this.getCurrentStickyAccount(modelId);
         if (stickyAccount) {
             return { account: stickyAccount, waitMs: 0 };
         }
 
         // Current account is rate-limited or invalid.
         // CHECK IF OTHERS ARE AVAILABLE before deciding to wait.
-        // We prefer switching to an available neighbor over waiting for the sticky one,
-        // to avoid "erroring forever" / tight retry loops on short rate limits.
-        const available = this.getAvailableAccounts();
+        const available = this.getAvailableAccounts(modelId);
         if (available.length > 0) {
             // Found a free account! Switch immediately.
-            const nextAccount = this.pickNext();
+            const nextAccount = this.pickNext(modelId);
             if (nextAccount) {
                 logger.info(`[AccountManager] Switched to new account (failover): ${nextAccount.email}`);
                 return { account: nextAccount, waitMs: 0 };
@@ -324,7 +368,7 @@ export class AccountManager {
         }
 
         // No other accounts available. Now checking if we should wait for current account.
-        const waitInfo = this.shouldWaitForCurrentAccount();
+        const waitInfo = this.shouldWaitForCurrentAccount(modelId);
         if (waitInfo.shouldWait) {
             logger.info(`[AccountManager] Waiting ${formatDuration(waitInfo.waitMs)} for sticky account: ${waitInfo.account.email}`);
             return { account: null, waitMs: waitInfo.waitMs };
@@ -332,7 +376,7 @@ export class AccountManager {
 
         // Current account unavailable for too long/invalid, and no others available?
         // pickNext will likely return null or loop, but we defer to standard logic.
-        const nextAccount = this.pickNext();
+        const nextAccount = this.pickNext(modelId);
         if (nextAccount) {
             logger.info(`[AccountManager] Switched to new account for cache: ${nextAccount.email}`);
         }
@@ -343,22 +387,30 @@ export class AccountManager {
      * Mark an account as rate-limited
      * @param {string} email - Email of the account to mark
      * @param {number|null} resetMs - Time in ms until rate limit resets (optional)
+     * @param {string|null} modelId - Model ID triggering the limit (optional)
      */
-    markRateLimited(email, resetMs = null) {
+    markRateLimited(email, resetMs = null, modelId = null) {
         const account = this.#accounts.find(a => a.email === email);
         if (!account) return;
 
-        account.isRateLimited = true;
         const cooldownMs = resetMs || this.#settings.cooldownDurationMs || DEFAULT_COOLDOWN_MS;
-        account.rateLimitResetTime = Date.now() + cooldownMs;
+        const resetTime = Date.now() + cooldownMs;
 
-        account.rateLimitResetTime = Date.now() + cooldownMs;
-
-        logger.warn(
-            `[AccountManager] Rate limited: ${email}. Available in ${formatDuration(cooldownMs)}`
-        );
-
-        this.saveToDisk();
+        if (modelId) {
+            // Model specific limit
+            if (!account.modelRateLimits) account.modelRateLimits = {};
+            account.modelRateLimits[modelId] = resetTime;
+            logger.warn(
+                `[AccountManager] Rate limited: ${email} for model ${modelId}. Available in ${formatDuration(cooldownMs)}`
+            );
+        } else {
+            // Global limit
+            account.isRateLimited = true;
+            account.rateLimitResetTime = resetTime;
+            logger.warn(
+                `[AccountManager] Globally Rate limited: ${email}. Available in ${formatDuration(cooldownMs)}`
+            );
+        }
 
         this.saveToDisk();
     }
@@ -396,22 +448,32 @@ export class AccountManager {
 
     /**
      * Get the minimum wait time until any account becomes available
+     * @param {string|null} modelId - Model ID (optional)
      * @returns {number} Wait time in milliseconds
      */
-    getMinWaitTimeMs() {
-        if (!this.isAllRateLimited()) return 0;
+    getMinWaitTimeMs(modelId = null) {
+        if (!this.isAllRateLimited(modelId)) return 0;
 
         const now = Date.now();
         let minWait = Infinity;
         let soonestAccount = null;
 
         for (const account of this.#accounts) {
-            if (account.rateLimitResetTime) {
-                const wait = account.rateLimitResetTime - now;
-                if (wait > 0 && wait < minWait) {
-                    minWait = wait;
-                    soonestAccount = account;
-                }
+            let wait = 0;
+            
+            // Global check
+            if (account.isRateLimited && account.rateLimitResetTime) {
+                wait = Math.max(wait, account.rateLimitResetTime - now);
+            }
+            
+            // Model check
+            if (modelId && account.modelRateLimits && account.modelRateLimits[modelId]) {
+                wait = Math.max(wait, account.modelRateLimits[modelId] - now);
+            }
+            
+            if (wait > 0 && wait < minWait) {
+                minWait = wait;
+                soonestAccount = account;
             }
         }
 
@@ -451,6 +513,12 @@ export class AccountManager {
                 }
                 logger.success(`[AccountManager] Refreshed OAuth token for: ${account.email}`);
             } catch (error) {
+                if (isNetworkError(error)) {
+                    logger.warn(`[AccountManager] Network error refreshing token for ${account.email}, not marking invalid: ${error.message}`);
+                    // Propagate as soft error so caller can try next account or retry
+                    throw new Error(`AUTH_NETWORK_ERROR: ${account.email}: ${error.message}`);
+                }
+
                 logger.error(`[AccountManager] Failed to refresh token for ${account.email}:`, error.message);
                 // Mark account as invalid (credentials need re-auth)
                 this.markInvalid(account.email, error.message);
@@ -586,6 +654,7 @@ export class AccountManager {
                     addedAt: acc.addedAt || undefined,
                     isRateLimited: acc.isRateLimited,
                     rateLimitResetTime: acc.rateLimitResetTime,
+                modelRateLimits: acc.modelRateLimits || {},
                     isInvalid: acc.isInvalid || false,
                     invalidReason: acc.invalidReason || null,
                     lastUsed: acc.lastUsed

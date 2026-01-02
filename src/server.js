@@ -7,6 +7,11 @@
 import express from 'express';
 import cors from 'cors';
 import { sendMessage, sendMessageStream, listModels, getModelQuotas } from './cloudcode-client.js';
+import { 
+    convertOpenAIToAnthropic, 
+    convertAnthropicToOpenAI, 
+    convertAnthropicStreamToOpenAI 
+} from './format/index.js';
 import { forceRefresh } from './token-extractor.js';
 import { REQUEST_BODY_LIMIT } from './constants.js';
 import { AccountManager } from './account-manager.js';
@@ -111,22 +116,100 @@ app.use((req, res, next) => {
 });
 
 /**
- * Health check endpoint
+ * Health check endpoint - Detailed status
+ * Returns status of all accounts including rate limits and model quotas
  */
 app.get('/health', async (req, res) => {
     try {
         await ensureInitialized();
+        const start = Date.now();
+        
+        // Get high-level status first
         const status = accountManager.getStatus();
+        const allAccounts = accountManager.getAllAccounts();
+        
+        // Fetch quotas for each account in parallel to get detailed model info
+        const accountDetails = await Promise.allSettled(
+            allAccounts.map(async (account) => {
+                const baseInfo = {
+                    email: account.email,
+                    lastUsed: account.lastUsed ? new Date(account.lastUsed).toISOString() : null,
+                    isRateLimited: account.isRateLimited,
+                    rateLimitResetTime: account.rateLimitResetTime ? new Date(account.rateLimitResetTime).toISOString() : null,
+                    rateLimitCooldownRemaining: account.rateLimitResetTime ? Math.max(0, account.rateLimitResetTime - Date.now()) : 0
+                };
+
+                // Skip invalid accounts for quota check
+                if (account.isInvalid) {
+                    return {
+                        ...baseInfo,
+                        status: 'invalid',
+                        error: account.invalidReason,
+                        models: {}
+                    };
+                }
+
+                try {
+                    const token = await accountManager.getTokenForAccount(account);
+                    const quotas = await getModelQuotas(token);
+
+                    // Format quotas for readability
+                    const formattedQuotas = {};
+                    for (const [modelId, info] of Object.entries(quotas)) {
+                        formattedQuotas[modelId] = {
+                            remaining: info.remainingFraction !== null ? `${Math.round(info.remainingFraction * 100)}%` : 'N/A',
+                            remainingFraction: info.remainingFraction,
+                            resetTime: info.resetTime || null
+                        };
+                    }
+
+                    return {
+                        ...baseInfo,
+                        status: account.isRateLimited ? 'rate-limited' : 'ok',
+                        models: formattedQuotas
+                    };
+                } catch (error) {
+                    return {
+                        ...baseInfo,
+                        status: 'error',
+                        error: error.message,
+                        models: {}
+                    };
+                }
+            })
+        );
+
+        // Process results
+        const detailedAccounts = accountDetails.map((result, index) => {
+            if (result.status === 'fulfilled') {
+                return result.value;
+            } else {
+                const acc = allAccounts[index];
+                return {
+                    email: acc.email,
+                    status: 'error',
+                    error: result.reason?.message || 'Unknown error',
+                    isRateLimited: acc.isRateLimited
+                };
+            }
+        });
 
         res.json({
             status: 'ok',
-            accounts: status.summary,
-            available: status.available,
-            rateLimited: status.rateLimited,
-            invalid: status.invalid,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            latencyMs: Date.now() - start,
+            summary: status.summary,
+            counts: {
+                total: status.total,
+                available: status.available,
+                rateLimited: status.rateLimited,
+                invalid: status.invalid
+            },
+            accounts: detailedAccounts
         });
+
     } catch (error) {
+        logger.error('[API] Health check failed:', error);
         res.status(503).json({
             status: 'error',
             error: error.message,
@@ -409,13 +492,6 @@ app.post('/v1/messages', async (req, res) => {
         // Ensure account manager is initialized
         await ensureInitialized();
 
-        // Optimistic Retry: If ALL accounts are rate-limited, reset them to force a fresh check.
-        // If we have some available accounts, we try them first.
-        if (accountManager.isAllRateLimited()) {
-            logger.warn('[Server] All accounts rate-limited. Resetting state for optimistic retry.');
-            accountManager.resetAllRateLimits();
-        }
-
         const {
             model,
             messages,
@@ -429,6 +505,14 @@ app.post('/v1/messages', async (req, res) => {
             top_k,
             temperature
         } = req.body;
+
+        // Optimistic Retry: If ALL accounts are rate-limited for this model, reset them to force a fresh check.
+        // If we have some available accounts, we try them first.
+        const modelId = model || 'claude-3-5-sonnet-20241022';
+        if (accountManager.isAllRateLimited(modelId)) {
+            logger.warn(`[Server] All accounts rate-limited for ${modelId}. Resetting state for optimistic retry.`);
+            accountManager.resetAllRateLimits();
+        }
 
         // Validate required fields
         if (!messages || !Array.isArray(messages)) {
@@ -543,6 +627,136 @@ app.post('/v1/messages', async (req, res) => {
                 }
             });
         }
+    }
+});
+
+/**
+ * OpenAI Compatible API Endpoints
+ */
+
+/**
+ * List models (OpenAI compatible)
+ */
+app.get('/openai/v1/models', async (req, res) => {
+    try {
+        await ensureInitialized();
+        const account = accountManager.pickNext();
+        if (!account) {
+            return res.status(503).json({
+                error: {
+                    message: 'No accounts available',
+                    type: 'server_error',
+                    code: 503
+                }
+            });
+        }
+        
+        const token = await accountManager.getTokenForAccount(account);
+        const models = await listModels(token);
+        
+        // Convert Anthropic models list to OpenAI format
+        // Anthropic: { data: [{ id: "...", ... }] } (already quite similar, but let's ensure)
+        const openAIModels = {
+            object: 'list',
+            data: models.data.map(m => ({
+                id: m.id,
+                object: 'model',
+                created: Math.floor(Date.now() / 1000),
+                owned_by: 'google'
+            }))
+        };
+        
+        res.json(openAIModels);
+    } catch (error) {
+        logger.error('[API] Error listing models (OpenAI):', error);
+        res.status(500).json({
+            error: {
+                message: error.message,
+                type: 'server_error',
+                code: 500
+            }
+        });
+    }
+});
+
+/**
+ * Chat Completions (OpenAI compatible)
+ */
+app.post('/openai/v1/chat/completions', async (req, res) => {
+    try {
+        await ensureInitialized();
+        
+        const openAIRequest = req.body;
+        
+        // Validate
+        if (!openAIRequest.messages || !Array.isArray(openAIRequest.messages)) {
+            return res.status(400).json({
+                error: {
+                    message: 'messages is required and must be an array',
+                    type: 'invalid_request_error',
+                    code: 'invalid_message'
+                }
+            });
+        }
+        
+        // Convert to Anthropic format
+        const anthropicRequest = convertOpenAIToAnthropic(openAIRequest);
+        logger.info(`[API] OpenAI Request for model: ${openAIRequest.model} (mapped to ${anthropicRequest.model})`);
+
+        // Handle streaming
+        if (openAIRequest.stream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            
+            try {
+                const streamId = `chatcmpl-${Math.random().toString(36).substr(2, 9)}`;
+                
+                for await (const event of sendMessageStream(anthropicRequest, accountManager)) {
+                    // Convert Anthropic event to OpenAI event
+                    const openAIEvent = convertAnthropicStreamToOpenAI(event, streamId, anthropicRequest.model);
+                    
+                    if (openAIEvent) {
+                        res.write(`data: ${JSON.stringify(openAIEvent)}\n\n`);
+                    }
+                }
+                
+                res.write('data: [DONE]\n\n');
+                res.end();
+            } catch (error) {
+                logger.error('[API] OpenAI Stream error:', error);
+                
+                // If headers sent, send error as event
+                const { statusCode, errorMessage } = parseError(error); // Reuse existing parser
+                res.write(`data: ${JSON.stringify({
+                    error: {
+                        message: errorMessage,
+                        type: 'api_error',
+                        code: statusCode
+                    }
+                })}\n\n`);
+                res.end();
+            }
+        } else {
+            // Handle non-streaming
+            const anthropicResponse = await sendMessage(anthropicRequest, accountManager);
+            
+            // Convert back to OpenAI format
+            const openAIResponse = convertAnthropicToOpenAI(anthropicResponse, openAIRequest);
+            res.json(openAIResponse);
+        }
+
+    } catch (error) {
+        logger.error('[API] OpenAI Error:', error);
+        const { statusCode, errorMessage, errorType } = parseError(error);
+        
+        res.status(statusCode).json({
+            error: {
+                message: errorMessage,
+                type: errorType,
+                code: statusCode
+            }
+        });
     }
 });
 

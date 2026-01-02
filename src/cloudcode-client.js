@@ -24,7 +24,7 @@ import {
     convertGoogleToAnthropic
 } from './format/index.js';
 import { cacheSignature } from './format/signature-cache.js';
-import { formatDuration, sleep } from './utils/helpers.js';
+import { formatDuration, sleep, isNetworkError } from './utils/helpers.js';
 import { isRateLimitError, isAuthError } from './errors.js';
 import { logger } from './utils/logger.js';
 
@@ -322,7 +322,7 @@ export async function sendMessage(anthropicRequest, accountManager) {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         // Use sticky account selection for cache continuity
-        const { account: stickyAccount, waitMs } = accountManager.pickStickyAccount();
+        const { account: stickyAccount, waitMs } = accountManager.pickStickyAccount(model);
         let account = stickyAccount;
 
         // Handle waiting for sticky account
@@ -330,13 +330,13 @@ export async function sendMessage(anthropicRequest, accountManager) {
             logger.info(`[CloudCode] Waiting ${formatDuration(waitMs)} for sticky account...`);
             await sleep(waitMs);
             accountManager.clearExpiredLimits();
-            account = accountManager.getCurrentStickyAccount();
+            account = accountManager.getCurrentStickyAccount(model);
         }
 
         // Handle all accounts rate-limited
         if (!account) {
-            if (accountManager.isAllRateLimited()) {
-                const allWaitMs = accountManager.getMinWaitTimeMs();
+            if (accountManager.isAllRateLimited(model)) {
+                const allWaitMs = accountManager.getMinWaitTimeMs(model);
                 const resetTime = new Date(Date.now() + allWaitMs).toISOString();
 
                 // If wait time is too long (> 2 minutes), throw error immediately
@@ -351,7 +351,7 @@ export async function sendMessage(anthropicRequest, accountManager) {
                 logger.warn(`[CloudCode] All ${accountCount} account(s) rate-limited. Waiting ${formatDuration(allWaitMs)}...`);
                 await sleep(allWaitMs);
                 accountManager.clearExpiredLimits();
-                account = accountManager.pickNext();
+                account = accountManager.pickNext(model);
             }
 
             if (!account) {
@@ -439,7 +439,7 @@ export async function sendMessage(anthropicRequest, accountManager) {
                 // If all endpoints returned 429, mark account as rate-limited
                 if (lastError.is429) {
                     logger.warn(`[CloudCode] All endpoints rate-limited for ${account.email}`);
-                    accountManager.markRateLimited(account.email, lastError.resetMs);
+                    accountManager.markRateLimited(account.email, lastError.resetMs, model);
                     throw new Error(`Rate limited: ${lastError.errorText}`);
                 }
                 throw lastError;
@@ -456,11 +456,34 @@ export async function sendMessage(anthropicRequest, accountManager) {
                 logger.warn(`[CloudCode] Account ${account.email} has invalid credentials, trying next...`);
                 continue;
             }
+            if (isNetworkError(error)) {
+                // Network error (fetch failed, timeout, etc.) - treat as soft error
+                // DO NOT mark as invalid, just try next account logic or retry
+                logger.warn(`[CloudCode] Network error for ${account.email}, trying next account... (${error.message})`);
+                
+                // Optional: add a small delay before retry to let network recover
+                await sleep(1000);
+                
+                accountManager.pickNext(model); // Move to next account
+                continue;
+            }
+            if (isNetworkError(error)) {
+                // Network error (fetch failed, timeout, etc.) - treat as soft error
+                // DO NOT mark as invalid, just try next account logic or retry
+                logger.warn(`[CloudCode] Network error for ${account.email}, trying next account... (${error.message})`);
+                
+                // Optional: add a small delay before retry to let network recover
+                await sleep(1000);
+                
+                accountManager.pickNext(model); // Move to next account
+                continue;
+            }
+
             // Non-rate-limit error: throw immediately
             // UNLESS it's a 500 error, then we treat it as a "soft" failure for this account and try the next one
             if (error.message.includes('API error 5') || error.message.includes('500') || error.message.includes('503')) {
                 logger.warn(`[CloudCode] Account ${account.email} failed with 5xx error, trying next...`);
-                accountManager.pickNext(); // Force advance to next account
+                accountManager.pickNext(model); // Force advance to next account
                 continue;
             }
 
@@ -543,6 +566,28 @@ async function parseThinkingSSEResponse(response, originalModel) {
                     } else if (part.functionCall) {
                         flushThinking();
                         flushText();
+                        // For Gemini, capture thoughtSignature for caching
+                        // This corresponds to convertGoogleToAnthropic for streaming
+                        let signature = part.thoughtSignature;
+                        
+                        // Fallback to accumulated signature if missing on the tool part
+                        if (!signature && accumulatedThinkingSignature) {
+                            signature = accumulatedThinkingSignature;
+                            // Attach to part so convertGoogleToAnthropic can see it
+                            part.thoughtSignature = signature;
+                        }
+
+                        if (signature && signature.length >= MIN_SIGNATURE_LENGTH) {
+                            // Generate or use ID for caching
+                            const toolId = part.functionCall.id || `toolu_${crypto.randomBytes(12).toString('hex')}`;
+                            // If we generated an ID, make sure it's on the object so convertGoogleToAnthropic uses it
+                            if (!part.functionCall.id) {
+                                part.functionCall.id = toolId;
+                            }
+                            
+                            cacheSignature(toolId, signature);
+                        }
+
                         finalParts.push(part);
                     } else if (part.text !== undefined) {
                         if (!part.text) continue;
@@ -597,7 +642,7 @@ export async function* sendMessageStream(anthropicRequest, accountManager) {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         // Use sticky account selection for cache continuity
-        const { account: stickyAccount, waitMs } = accountManager.pickStickyAccount();
+        const { account: stickyAccount, waitMs } = accountManager.pickStickyAccount(model);
         let account = stickyAccount;
 
         // Handle waiting for sticky account
@@ -605,13 +650,13 @@ export async function* sendMessageStream(anthropicRequest, accountManager) {
             logger.info(`[CloudCode] Waiting ${formatDuration(waitMs)} for sticky account...`);
             await sleep(waitMs);
             accountManager.clearExpiredLimits();
-            account = accountManager.getCurrentStickyAccount();
+            account = accountManager.getCurrentStickyAccount(model);
         }
 
         // Handle all accounts rate-limited
         if (!account) {
-            if (accountManager.isAllRateLimited()) {
-                const allWaitMs = accountManager.getMinWaitTimeMs();
+            if (accountManager.isAllRateLimited(model)) {
+                const allWaitMs = accountManager.getMinWaitTimeMs(model);
                 const resetTime = new Date(Date.now() + allWaitMs).toISOString();
 
                 // If wait time is too long (> 2 minutes), throw error immediately
@@ -626,7 +671,7 @@ export async function* sendMessageStream(anthropicRequest, accountManager) {
                 logger.warn(`[CloudCode] All ${accountCount} account(s) rate-limited. Waiting ${formatDuration(allWaitMs)}...`);
                 await sleep(allWaitMs);
                 accountManager.clearExpiredLimits();
-                account = accountManager.pickNext();
+                account = accountManager.pickNext(model);
             }
 
             if (!account) {
@@ -707,7 +752,7 @@ export async function* sendMessageStream(anthropicRequest, accountManager) {
                 // If all endpoints returned 429, mark account as rate-limited
                 if (lastError.is429) {
                     logger.warn(`[CloudCode] All endpoints rate-limited for ${account.email}`);
-                    accountManager.markRateLimited(account.email, lastError.resetMs);
+                    accountManager.markRateLimited(account.email, lastError.resetMs, model);
                     throw new Error(`Rate limited: ${lastError.errorText}`);
                 }
                 throw lastError;
@@ -724,11 +769,23 @@ export async function* sendMessageStream(anthropicRequest, accountManager) {
                 logger.warn(`[CloudCode] Account ${account.email} has invalid credentials, trying next...`);
                 continue;
             }
+            if (isNetworkError(error)) {
+                // Network error (fetch failed, timeout, etc.) - treat as soft error
+                // DO NOT mark as invalid, just try next account logic or retry
+                logger.warn(`[CloudCode] Network error for ${account.email}, trying next account... (${error.message})`);
+                
+                // Optional: add a small delay before retry to let network recover
+                await sleep(1000);
+
+                accountManager.pickNext(model); // Move to next account
+                continue;
+            }
+
             // Non-rate-limit error: throw immediately
             // UNLESS it's a 500 error, then we treat it as a "soft" failure for this account and try the next one
             if (error.message.includes('API error 5') || error.message.includes('500') || error.message.includes('503')) {
                 logger.warn(`[CloudCode] Account ${account.email} failed with 5xx stream error, trying next...`);
-                accountManager.pickNext(); // Force advance to next account
+                accountManager.pickNext(model); // Force advance to next account
                 continue;
             }
 
@@ -881,7 +938,13 @@ async function* streamSSEResponse(response, originalModel) {
                         // Handle tool use
                         // For Gemini 3+, capture thoughtSignature from the functionCall part
                         // The signature is a sibling to functionCall, not inside it
-                        const functionCallSignature = part.thoughtSignature || '';
+                        let functionCallSignature = part.thoughtSignature || '';
+
+                        // Fallback: if no signature on function call, try using the one from the preceding thinking block
+                        // Gemini often sends the signature on the thought part, but we need it on the tool call
+                        if (!functionCallSignature && currentThinkingSignature) {
+                            functionCallSignature = currentThinkingSignature;
+                        }
 
                         if (currentBlockType === 'thinking' && currentThinkingSignature) {
                             yield {

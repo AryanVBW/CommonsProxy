@@ -1,0 +1,20 @@
+{
+  "accounts": [
+    {
+      "email": "test@robustness.com",
+      "source": "oauth",
+      "dbPath": null,
+      "refreshToken": "dummy",
+      "isRateLimited": false,
+      "rateLimitResetTime": null,
+      "modelRateLimits": {},
+      "isInvalid": false,
+      "invalidReason": null,
+      "lastUsed": 1767381010351
+    }
+  ],
+  "settings": {
+    "cooldownDurationMs": 1000
+  },
+  "activeIndex": 0
+}
