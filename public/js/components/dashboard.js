@@ -495,7 +495,10 @@ window.Components.dashboard = () => ({
 
         const isCore = (id) => /sonnet|opus|pro|flash/i.test(id);
 
-        accounts.forEach(acc => {
+        // Only count enabled accounts in statistics
+        const enabledAccounts = accounts.filter(acc => acc.enabled !== false);
+
+        enabledAccounts.forEach(acc => {
             if (acc.status === 'ok') {
                 const limits = Object.entries(acc.limits || {});
                 let hasActiveCore = limits.some(([id, l]) => l && l.remainingFraction > 0.05 && isCore(id));
@@ -512,7 +515,10 @@ window.Components.dashboard = () => ({
                 limited++;
             }
         });
-        this.stats.total = accounts.length;
+
+        // TOTAL shows only enabled accounts
+        // Disabled accounts are excluded from all statistics
+        this.stats.total = enabledAccounts.length;
         this.stats.active = active;
         this.stats.limited = limited;
     },

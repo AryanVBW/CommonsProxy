@@ -72,6 +72,16 @@ export class AccountManager {
     }
 
     /**
+     * Reload accounts from disk (force re-initialization)
+     * Useful when accounts.json is modified externally (e.g., by WebUI)
+     */
+    async reload() {
+        this.#initialized = false;
+        await this.initialize();
+        logger.info('[AccountManager] Accounts reloaded from disk');
+    }
+
+    /**
      * Get the number of accounts
      * @returns {number} Number of configured accounts
      */
@@ -278,6 +288,8 @@ export class AccountManager {
             accounts: this.#accounts.map(a => ({
                 email: a.email,
                 source: a.source,
+                enabled: a.enabled !== false,  // Default to true if undefined
+                projectId: a.projectId || null,
                 modelRateLimits: a.modelRateLimits || {},
                 isInvalid: a.isInvalid || false,
                 invalidReason: a.invalidReason || null,

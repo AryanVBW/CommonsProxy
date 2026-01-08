@@ -423,32 +423,51 @@ app.get('/account-limits', async (req, res) => {
             return res.send(lines.join('\n'));
         }
 
+        // Get account metadata from AccountManager
+        const accountStatus = accountManager.getStatus();
+        const accountMetadataMap = new Map(
+            accountStatus.accounts.map(a => [a.email, a])
+        );
+
         // Default: JSON format
         res.json({
             timestamp: new Date().toLocaleString(),
             totalAccounts: allAccounts.length,
             models: sortedModels,
             modelConfig: config.modelMapping || {},
-            accounts: accountLimits.map(acc => ({
-                email: acc.email,
-                status: acc.status,
-                error: acc.error || null,
-                limits: Object.fromEntries(
-                    sortedModels.map(modelId => {
-                        const quota = acc.models?.[modelId];
-                        if (!quota) {
-                            return [modelId, null];
-                        }
-                        return [modelId, {
-                            remaining: quota.remainingFraction !== null
-                                ? `${Math.round(quota.remainingFraction * 100)}%`
-                                : 'N/A',
-                            remainingFraction: quota.remainingFraction,
-                            resetTime: quota.resetTime || null
-                        }];
-                    })
-                )
-            }))
+            accounts: accountLimits.map(acc => {
+                // Merge quota data with account metadata
+                const metadata = accountMetadataMap.get(acc.email) || {};
+                return {
+                    email: acc.email,
+                    status: acc.status,
+                    error: acc.error || null,
+                    // Include metadata from AccountManager (WebUI needs these)
+                    source: metadata.source || 'unknown',
+                    enabled: metadata.enabled !== false,
+                    projectId: metadata.projectId || null,
+                    isInvalid: metadata.isInvalid || false,
+                    invalidReason: metadata.invalidReason || null,
+                    lastUsed: metadata.lastUsed || null,
+                    modelRateLimits: metadata.modelRateLimits || {},
+                    // Quota limits
+                    limits: Object.fromEntries(
+                        sortedModels.map(modelId => {
+                            const quota = acc.models?.[modelId];
+                            if (!quota) {
+                                return [modelId, null];
+                            }
+                            return [modelId, {
+                                remaining: quota.remainingFraction !== null
+                                    ? `${Math.round(quota.remainingFraction * 100)}%`
+                                    : 'N/A',
+                                remainingFraction: quota.remainingFraction,
+                                resetTime: quota.resetTime || null
+                            }];
+                        })
+                    )
+                };
+            })
         });
     } catch (error) {
         res.status(500).json({

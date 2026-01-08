@@ -25,6 +25,7 @@
                 <tr class="border-b border-space-border/50">
                     <th class="pl-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-20" x-text="$store.global.t('enabled')">Enabled</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider" x-text="$store.global.t('identity')">Identity (Email)</th>
+                    <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-24" x-text="$store.global.t('source')">Source</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-32" x-text="$store.global.t('projectId')">Project ID</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-24" x-text="$store.global.t('health')">Health</th>
                     <th class="py-3 pr-6 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider w-32" x-text="$store.global.t('operations')">Operations</th>
@@ -49,6 +50,12 @@
                                               acc.email">
                                 </span>
                             </div>
+                        </td>
+                        <td class="py-4">
+                            <span class="px-2 py-1 text-[10px] font-mono font-bold uppercase rounded"
+                                  :class="acc.source === 'oauth' ? 'bg-neon-purple/10 text-neon-purple border border-neon-purple/30' : 'bg-gray-500/10 text-gray-400 border border-gray-500/30'"
+                                  x-text="acc.source || 'oauth'">
+                            </span>
                         </td>
                         <td class="py-4 font-mono text-xs text-gray-500" x-text="acc.projectId || '-'"></td>
                         <td class="py-4">
@@ -81,8 +88,11 @@
                                     </svg>
                                 </button>
                                 <button
-                                    class="p-2 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
-                                    @click="deleteAccount(acc.email)" :title="$store.global.t('delete')">
+                                    class="p-2 rounded transition-colors"
+                                    :class="acc.source === 'database' ? 'text-gray-700 cursor-not-allowed' : 'hover:bg-red-500/10 text-gray-500 hover:text-red-400'"
+                                    :disabled="acc.source === 'database'"
+                                    @click="acc.source !== 'database' && deleteAccount(acc.email)"
+                                    :title="acc.source === 'database' ? $store.global.t('cannotDeleteDatabase') : $store.global.t('delete')">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

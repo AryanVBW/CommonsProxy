@@ -130,7 +130,10 @@
 
 /* View Containers */
 .view-container {
-    @apply max-w-7xl mx-auto p-6 space-y-6 animate-fade-in;
+    @apply mx-auto p-6 space-y-6 animate-fade-in;
+    /* Responsive max-width: use most of screen on small displays,
+       but cap at 1600px on large displays for reading comfort */
+    max-width: min(95%, 1600px);
 }
 
 /* Section Headers */

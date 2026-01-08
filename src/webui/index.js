@@ -18,11 +18,12 @@ import { getPublicConfig, saveConfig, config } from '../config.js';
 import { DEFAULT_PORT, ACCOUNT_CONFIG_PATH } from '../constants.js';
 import { readClaudeConfig, updateClaudeConfig, getClaudeConfigPath } from '../utils/claude-config.js';
 import { logger } from '../utils/logger.js';
-import { getAuthorizationUrl, completeOAuthFlow } from '../auth/oauth.js';
+import { getAuthorizationUrl, completeOAuthFlow, startCallbackServer } from '../auth/oauth.js';
 import { loadAccounts, saveAccounts } from '../account-manager/storage.js';
 
-// OAuth state storage (state -> { verifier, timestamp })
-const pendingOAuthStates = new Map();
+// OAuth state storage (state -> { server, verifier, state, timestamp })
+// Maps state ID to active OAuth flow data
+const pendingOAuthFlows = new Map();
 
 /**
  * WebUI Helper Functions - Direct account manipulation
@@ -190,7 +191,7 @@ export function mountWebUI(app, dirname, accountManager) {
             await setAccountEnabled(email, enabled);
 
             // Reload AccountManager to pick up changes
-            await accountManager.initialize();
+            await accountManager.reload();
 
             res.json({
                 status: 'ok',
@@ -210,7 +211,7 @@ export function mountWebUI(app, dirname, accountManager) {
             await removeAccount(email);
 
             // Reload AccountManager to pick up changes
-            await accountManager.initialize();
+            await accountManager.reload();
 
             res.json({
                 status: 'ok',
@@ -227,7 +228,7 @@ export function mountWebUI(app, dirname, accountManager) {
     app.post('/api/accounts/reload', async (req, res) => {
         try {
             // Reload AccountManager from disk
-            await accountManager.initialize();
+            await accountManager.reload();
 
             const status = accountManager.getStatus();
             res.json({
@@ -508,22 +509,62 @@ export function mountWebUI(app, dirname, accountManager) {
 
     /**
      * GET /api/auth/url - Get OAuth URL to start the flow
+     * Uses CLI's OAuth flow (localhost:51121) instead of WebUI's port
+     * to match Google OAuth Console's authorized redirect URIs
      */
-    app.get('/api/auth/url', (req, res) => {
+    app.get('/api/auth/url', async (req, res) => {
         try {
-            const { email } = req.query;
-            const { url, verifier, state } = getAuthorizationUrl(email);
-
-            // Store the verifier temporarily
-            pendingOAuthStates.set(state, { verifier, timestamp: Date.now() });
-
-            // Clean up old states (> 10 mins)
+            // Clean up old flows (> 10 mins)
             const now = Date.now();
-            for (const [key, val] of pendingOAuthStates.entries()) {
+            for (const [key, val] of pendingOAuthFlows.entries()) {
                 if (now - val.timestamp > 10 * 60 * 1000) {
-                    pendingOAuthStates.delete(key);
+                    pendingOAuthFlows.delete(key);
                 }
             }
+
+            // Generate OAuth URL using default redirect URI (localhost:51121)
+            const { url, verifier, state } = getAuthorizationUrl();
+
+            // Start callback server on port 51121 (same as CLI)
+            const serverPromise = startCallbackServer(state, 120000); // 2 min timeout
+
+            // Store the flow data
+            pendingOAuthFlows.set(state, {
+                serverPromise,
+                verifier,
+                state,
+                timestamp: Date.now()
+            });
+
+            // Start async handler for the OAuth callback
+            serverPromise
+                .then(async (code) => {
+                    try {
+                        logger.info('[WebUI] Received OAuth callback, completing flow...');
+                        const accountData = await completeOAuthFlow(code, verifier);
+
+                        // Add or update the account
+                        await addAccount({
+                            email: accountData.email,
+                            refreshToken: accountData.refreshToken,
+                            projectId: accountData.projectId,
+                            source: 'oauth'
+                        });
+
+                        // Reload AccountManager to pick up the new account
+                        await accountManager.reload();
+
+                        logger.success(`[WebUI] Account ${accountData.email} added successfully`);
+                    } catch (err) {
+                        logger.error('[WebUI] OAuth flow completion error:', err);
+                    } finally {
+                        pendingOAuthFlows.delete(state);
+                    }
+                })
+                .catch((err) => {
+                    logger.error('[WebUI] OAuth callback server error:', err);
+                    pendingOAuthFlows.delete(state);
+                });
 
             res.json({ status: 'ok', url });
         } catch (error) {
@@ -533,107 +574,10 @@ export function mountWebUI(app, dirname, accountManager) {
     });
 
     /**
-     * GET /oauth/callback - OAuth callback handler
+     * Note: /oauth/callback route removed
+     * OAuth callbacks are now handled by the temporary server on port 51121
+     * (same as CLI) to match Google OAuth Console's authorized redirect URIs
      */
-    app.get('/oauth/callback', async (req, res) => {
-        const { code, state, error } = req.query;
-
-        if (error) {
-            return res.status(400).send(`Authentication failed: ${error}`);
-        }
-
-        if (!code || !state) {
-            return res.status(400).send('Missing code or state parameter');
-        }
-
-        const storedState = pendingOAuthStates.get(state);
-        if (!storedState) {
-            return res.status(400).send('Invalid or expired state parameter. Please try again.');
-        }
-
-        // Remove used state
-        pendingOAuthStates.delete(state);
-
-        try {
-            const accountData = await completeOAuthFlow(code, storedState.verifier);
-
-            // Add or update the account
-            await addAccount({
-                email: accountData.email,
-                refreshToken: accountData.refreshToken,
-                projectId: accountData.projectId,
-                source: 'oauth'
-            });
-
-            // Reload AccountManager to pick up the new account
-            await accountManager.initialize();
-
-            // Return a simple HTML page that closes itself or redirects
-            res.send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Authentication Successful</title>
-                    <link rel="stylesheet" href="/css/style.css">
-                    <style>
-                        body {
-                            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-                            background-color: var(--color-space-950);
-                            color: var(--color-text-main);
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            height: 100vh;
-                            margin: 0;
-                            flex-direction: column;
-                        }
-                        h1 { color: var(--color-neon-green); }
-                    </style>
-                </head>
-                <body>
-                    <h1>Authentication Successful</h1>
-                    <p>Account ${accountData.email} has been added.</p>
-                    <p>You can close this window now.</p>
-                    <script>
-                        // Notify opener if opened via window.open
-                        if (window.opener) {
-                            window.opener.postMessage({ type: 'oauth-success', email: '${accountData.email}' }, '*');
-                            setTimeout(() => window.close(), 2000);
-                        } else {
-                            // If redirected in same tab, redirect back to home after delay
-                            setTimeout(() => window.location.href = '/', 3000);
-                        }
-                    </script>
-                </body>
-                </html>
-            `);
-        } catch (err) {
-            logger.error('[WebUI] OAuth callback error:', err);
-            res.status(500).send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Authentication Failed</title>
-                    <link rel="stylesheet" href="/css/style.css">
-                    <style>
-                        body {
-                            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-                            background-color: var(--color-space-950);
-                            color: var(--color-text-main);
-                            text-align: center;
-                            padding: 50px;
-                        }
-                        h1 { color: var(--color-neon-red); }
-                    </style>
-                </head>
-                <body>
-                    <h1>Authentication Failed</h1>
-                    <p>${err.message}</p>
-                </body>
-                </html>
-            `);
-        }
-    });
 
     logger.info('[WebUI] Mounted at /');
 }

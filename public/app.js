@@ -109,22 +109,43 @@ document.addEventListener('alpine:init', () => {
                 const data = await response.json();
 
                 if (data.status === 'ok') {
+                    // Show info toast that OAuth is in progress
+                    Alpine.store('global').showToast(Alpine.store('global').t('oauthInProgress'), 'info');
+
+                    // Open OAuth window
                     window.open(data.url, 'google_oauth', 'width=600,height=700,scrollbars=yes');
 
-                    const messageHandler = (event) => {
-                        if (event.data?.type === 'oauth-success') {
+                    // Poll for account changes instead of relying on postMessage
+                    // (since OAuth callback is now on port 51121, not this server)
+                    const initialAccountCount = Alpine.store('data').accounts.length;
+                    let pollCount = 0;
+                    const maxPolls = 60; // 2 minutes (2 second intervals)
+
+                    const pollInterval = setInterval(async () => {
+                        pollCount++;
+
+                        // Refresh account list
+                        await Alpine.store('data').fetchData();
+
+                        // Check if new account was added
+                        const currentAccountCount = Alpine.store('data').accounts.length;
+                        if (currentAccountCount > initialAccountCount) {
+                            clearInterval(pollInterval);
                             const actionKey = reAuthEmail ? 'reauthenticated' : 'added';
                             const action = Alpine.store('global').t(actionKey);
                             const successfully = Alpine.store('global').t('successfully');
-                            const msg = `${Alpine.store('global').t('accounts')} ${event.data.email} ${action} ${successfully}`;
-
-                            Alpine.store('global').showToast(msg, 'success');
-                            Alpine.store('data').fetchData();
+                            Alpine.store('global').showToast(
+                                `${Alpine.store('global').t('accounts')} ${action} ${successfully}`,
+                                'success'
+                            );
                             document.getElementById('add_account_modal')?.close();
                         }
-                    };
-                    window.addEventListener('message', messageHandler);
-                    setTimeout(() => window.removeEventListener('message', messageHandler), 300000);
+
+                        // Stop polling after max attempts
+                        if (pollCount >= maxPolls) {
+                            clearInterval(pollInterval);
+                        }
+                    }, 2000); // Poll every 2 seconds
                 } else {
                     Alpine.store('global').showToast(data.error || Alpine.store('global').t('failedToGetAuthUrl'), 'error');
                 }

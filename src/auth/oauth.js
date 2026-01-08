@@ -32,15 +32,16 @@ function generatePKCE() {
  * Generate authorization URL for Google OAuth
  * Returns the URL and the PKCE verifier (needed for token exchange)
  *
+ * @param {string} [customRedirectUri] - Optional custom redirect URI (e.g. for WebUI)
  * @returns {{url: string, verifier: string, state: string}} Auth URL and PKCE data
  */
-export function getAuthorizationUrl() {
+export function getAuthorizationUrl(customRedirectUri = null) {
     const { verifier, challenge } = generatePKCE();
     const state = crypto.randomBytes(16).toString('hex');
 
     const params = new URLSearchParams({
         client_id: OAUTH_CONFIG.clientId,
-        redirect_uri: OAUTH_REDIRECT_URI,
+        redirect_uri: customRedirectUri || OAUTH_REDIRECT_URI,
         response_type: 'code',
         scope: OAUTH_CONFIG.scopes.join(' '),
         access_type: 'offline',

@@ -28,6 +28,14 @@ window.Components.accountManager = () => ({
     async toggleAccount(email, enabled) {
         const store = Alpine.store('global');
         const password = store.webuiPassword;
+
+        // Optimistic update: immediately update UI
+        const dataStore = Alpine.store('data');
+        const account = dataStore.accounts.find(a => a.email === email);
+        if (account) {
+            account.enabled = enabled;
+        }
+
         try {
             const { response, newPassword } = await window.utils.request(`/api/accounts/${encodeURIComponent(email)}/toggle`, {
                 method: 'POST',
@@ -40,12 +48,23 @@ window.Components.accountManager = () => ({
             if (data.status === 'ok') {
                 const status = enabled ? store.t('enabledStatus') : store.t('disabledStatus');
                 store.showToast(store.t('accountToggled', { email, status }), 'success');
-                Alpine.store('data').fetchData();
+                // Refresh to confirm server state
+                await dataStore.fetchData();
             } else {
                 store.showToast(data.error || store.t('toggleFailed'), 'error');
+                // Rollback optimistic update on error
+                if (account) {
+                    account.enabled = !enabled;
+                }
+                await dataStore.fetchData();
             }
         } catch (e) {
             store.showToast(store.t('toggleFailed') + ': ' + e.message, 'error');
+            // Rollback optimistic update on error
+            if (account) {
+                account.enabled = !enabled;
+            }
+            await dataStore.fetchData();
         }
     },
 
