@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
     retryBaseMs: 1000,
     retryMaxMs: 30000,
     persistTokenCache: false,
-    defaultCooldownMs: 60000,  // 1 minute
+    defaultCooldownMs: 10000,  // 10 seconds
     maxWaitBeforeErrorMs: 120000, // 2 minutes
     modelMapping: {}
 };
