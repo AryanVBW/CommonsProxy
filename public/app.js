@@ -15,6 +15,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('logsViewer', window.Components.logsViewer);
     Alpine.data('issueBanner', window.Components.issueBanner);
     Alpine.data('healthMatrix', window.DashboardHealthMatrix.component);
+    Alpine.data('healthPage', window.Components.healthPage);
 
     // View Loader Directive
     Alpine.directive('load-view', (el, { expression }, { evaluate }) => {

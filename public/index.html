@@ -182,6 +182,16 @@
                         </svg>
                         <span x-text="$store.global.t('accounts')">Accounts</span>
                     </button>
+                    <button
+                        class="nav-item flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5"
+                        :class="{'active': $store.global.activeTab === 'health'}"
+                        @click="$store.global.activeTab = 'health'">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span x-text="$store.global.t('health')">Health</span>
+                    </button>
                 </nav>
 
                 <div class="px-4 mt-8 mb-2 text-xs font-bold text-gray-600 uppercase tracking-widest"
@@ -241,6 +251,11 @@
 
             <!-- Accounts -->
             <div x-show="$store.global.activeTab === 'accounts'" x-load-view="'accounts'"
+                x-transition:enter="fade-enter-active" x-transition:enter-start="fade-enter-from"
+                class="w-full"></div>
+
+            <!-- Health -->
+            <div x-show="$store.global.activeTab === 'health'" x-load-view="'health'"
                 x-transition:enter="fade-enter-active" x-transition:enter-start="fade-enter-from"
                 class="w-full"></div>
 
@@ -377,6 +392,7 @@
     <script src="js/components/issue-banner.js"></script>
     <script src="js/components/server-config.js"></script>
     <script src="js/components/model-manager.js"></script>
+    <script src="js/components/health-page.js"></script>
     <!-- 4. App (registers Alpine components from window.Components) -->
     <script src="app.js"></script>
 </body>

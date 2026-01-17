@@ -7,7 +7,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.store('global', {
         init() {
             // Hash-based routing
-            const validTabs = ['dashboard', 'models', 'accounts', 'logs', 'settings'];
+            const validTabs = ['dashboard', 'models', 'accounts', 'health', 'logs', 'settings'];
             const getHash = () => window.location.hash.substring(1);
 
             // 1. Initial load from hash
