@@ -324,7 +324,7 @@ window.Components.logsViewer = () => ({
             const newLogs = Array.isArray(parsed) ? parsed : [parsed];
 
             // Map/Normalize logs
-            const processedLogs = newLogs.map(log => ({
+            const processedLogs = newLogs.map((log, index) => ({
                 ...log,
                 // Ensure timestamp is a Date object or string
                 timestamp: log.timestamp || new Date().toISOString(),
@@ -334,8 +334,11 @@ window.Components.logsViewer = () => ({
                 type: log.type || 'system',
                 // Mark the source
                 _source: source,
-                // Generate a temp ID if missing for UI keys
-                _ui_id: log.id || `${source}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+                // Generate a unique ID: use existing id with source prefix, or generate new one
+                // This prevents duplicates when same event comes from different streams
+                _ui_id: log.id
+                    ? `${source}_${log.id}`
+                    : `${source}_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 9)}`
             }));
 
             // Filter out 'connected' system messages from event stream

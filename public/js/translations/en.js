@@ -112,6 +112,7 @@ window.translations.en = {
     unsavedChangesTitle: "Unsaved Changes",
     unsavedChangesMessage: "Your current configuration doesn't match any saved preset. If you switch, your current unsaved settings will be lost.",
     loadAnyway: "Load Anyway",
+    loadPresetConfirm: "Load \"{name}\" and lose current changes?",
     savePresetTitle: "Save Preset",
     savePresetDesc: "Save the current configuration as a reusable preset.",
     presetName: "Preset Name",

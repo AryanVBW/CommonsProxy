@@ -132,6 +132,7 @@ window.translations.id = {
     unsavedChangesTitle: "Ada Perubahan Belum Disimpan",
     unsavedChangesMessage: "Konfigurasi saat ini tidak cocok dengan preset tersimpan. Jika beralih, perubahan akan hilang.",
     loadAnyway: "Tetap Muat",
+    loadPresetConfirm: "Muat \"{name}\" dan kehilangan perubahan saat ini?",
     savePresetTitle: "Simpan Preset",
     savePresetDesc: "Simpan konfigurasi saat ini sebagai preset.",
     presetName: "Nama Preset",

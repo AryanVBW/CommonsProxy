@@ -151,7 +151,13 @@ window.Components.accountManager = () => ({
     async fetchAccountHealth(email) {
         this.healthLoading = true;
         try {
-            const response = await fetch(`/api/accounts/${encodeURIComponent(email)}/health`);
+            const store = Alpine.store('global');
+            const { response, newPassword } = await window.utils.request(
+                `/api/accounts/${encodeURIComponent(email)}/health`,
+                {},
+                store.webuiPassword
+            );
+            if (newPassword) store.webuiPassword = newPassword;
             if (response.ok) {
                 const data = await response.json();
                 this.selectedAccountHealth = data.health || {};

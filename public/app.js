@@ -108,8 +108,12 @@ document.addEventListener('alpine:init', () => {
             this.startAutoRefresh();
             document.addEventListener('refresh-interval-changed', () => this.startAutoRefresh());
 
-            // Initial Fetch
-            Alpine.store('data').fetchData();
+            // Initial Fetch - only if no valid cache exists
+            // Cache is already restored in data-store init(), so skip fetch if we have data
+            const dataStore = Alpine.store('data');
+            if (!dataStore.accounts || dataStore.accounts.length === 0) {
+                dataStore.fetchData();
+            }
         },
 
         refreshTimer: null,

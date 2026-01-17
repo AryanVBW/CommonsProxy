@@ -112,6 +112,7 @@ window.translations.zh = {
     unsavedChangesTitle: "未保存的更改",
     unsavedChangesMessage: "当前配置与任何已保存的预设都不匹配。如果切换预设，当前未保存的设置将会丢失。",
     loadAnyway: "仍然加载",
+    loadPresetConfirm: "加载 \"{name}\" 并丢失当前更改？",
     savePresetTitle: "保存预设",
     savePresetDesc: "将当前配置保存为可重复使用的预设。",
     presetName: "预设名称",
