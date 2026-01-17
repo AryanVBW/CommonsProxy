@@ -11,7 +11,7 @@ window.DashboardHealthMatrix.component = () => ({
     pollInterval: null,
 
     // Config
-    commonModels: [
+    commonModels: window.AppConstants?.MODELS?.HEALTH_MONITOR_MODELS || [
         'claude-opus-4-5-thinking',
         'claude-sonnet-4-5-thinking',
         'gemini-3-flash',

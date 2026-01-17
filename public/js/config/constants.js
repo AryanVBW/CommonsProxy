@@ -96,3 +96,16 @@ window.AppConstants.UI = {
     // Loading spinner delay
     LOADING_DELAY: 200
 };
+
+/**
+ * Model Constants
+ */
+window.AppConstants.MODELS = {
+    // Models to display in health monitoring views
+    HEALTH_MONITOR_MODELS: [
+        'claude-opus-4-5-thinking',
+        'claude-sonnet-4-5-thinking',
+        'gemini-3-flash',
+        'gemini-3-pro-high'
+    ]
+};

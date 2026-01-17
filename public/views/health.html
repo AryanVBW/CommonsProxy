@@ -15,7 +15,20 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+            <!-- Live Indicator -->
+            <div class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-space-900/60 border border-space-border/40 whitespace-nowrap flex-shrink-0">
+                <div class="relative flex items-center justify-center">
+                    <span class="absolute w-1.5 h-1.5 bg-neon-green rounded-full animate-ping opacity-75"></span>
+                    <span class="relative w-1.5 h-1.5 bg-neon-green rounded-full"></span>
+                </div>
+                <span class="text-[10px] font-mono text-gray-500 uppercase tracking-wider" x-text="$store.global.t('live')">Live</span>
+                <span class="text-gray-700">•</span>
+                <span class="text-[10px] font-mono text-gray-400 tabular-nums"
+                      x-text="new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})">
+                </span>
+            </div>
+
             <button class="btn btn-xs btn-outline border-space-border text-gray-400 hover:text-white transition-all gap-2 h-8"
                 @click="loadMatrix()"
                 :disabled="loading">
@@ -33,53 +46,77 @@
     <!-- Health Summary Cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3 mb-6">
         <!-- Healthy -->
-        <div class="stat bg-space-900/40 border border-space-border/30 rounded-xl p-3 lg:p-4 hover:border-neon-green/30 hover:bg-neon-green/5 transition-all duration-300 group relative min-w-0">
-            <div class="absolute top-3 right-3 text-gray-700/40 group-hover:text-neon-green/70 transition-colors">
+        <div @click="setFilter('healthy')"
+             class="stat border rounded-xl p-3 lg:p-4 transition-all duration-300 group relative min-w-0 cursor-pointer"
+             :class="activeFilter === 'healthy'
+                ? 'bg-neon-green/10 border-neon-green/50 shadow-[0_0_15px_-3px_rgba(74,222,128,0.2)]'
+                : 'bg-space-900/40 border-space-border/30 hover:border-neon-green/30 hover:bg-neon-green/5'">
+            <div class="absolute top-3 right-3 transition-colors"
+                 :class="activeFilter === 'healthy' ? 'text-neon-green' : 'text-gray-700/40 group-hover:text-neon-green/70'">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
             <div class="stat-value text-white font-mono text-2xl lg:text-3xl font-bold mb-1 truncate" x-text="summary.healthy"></div>
-            <div class="stat-title text-gray-500 font-mono text-[10px] uppercase tracking-wider truncate"
+            <div class="stat-title font-mono text-[10px] uppercase tracking-wider truncate"
+                 :class="activeFilter === 'healthy' ? 'text-neon-green' : 'text-gray-500'"
                 x-text="$store.global.t('healthyPairs')">Healthy</div>
             <div class="stat-desc text-neon-green/60 text-[10px] truncate" x-text="$store.global.t('healthScoreAbove90')">Score > 90%</div>
         </div>
 
         <!-- Warning -->
-        <div class="stat bg-space-900/40 border border-space-border/30 rounded-xl p-3 lg:p-4 hover:border-yellow-500/30 hover:bg-yellow-500/5 transition-all duration-300 group relative min-w-0">
-            <div class="absolute top-3 right-3 text-gray-700/40 group-hover:text-yellow-500/70 transition-colors">
+        <div @click="setFilter('warning')"
+             class="stat border rounded-xl p-3 lg:p-4 transition-all duration-300 group relative min-w-0 cursor-pointer"
+             :class="activeFilter === 'warning'
+                ? 'bg-yellow-500/10 border-yellow-500/50 shadow-[0_0_15px_-3px_rgba(234,179,8,0.2)]'
+                : 'bg-space-900/40 border-space-border/30 hover:border-yellow-500/30 hover:bg-yellow-500/5'">
+            <div class="absolute top-3 right-3 transition-colors"
+                 :class="activeFilter === 'warning' ? 'text-yellow-500' : 'text-gray-700/40 group-hover:text-yellow-500/70'">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
             <div class="stat-value text-white font-mono text-2xl lg:text-3xl font-bold mb-1 truncate" x-text="summary.warning"></div>
-            <div class="stat-title text-gray-500 font-mono text-[10px] uppercase tracking-wider truncate"
+            <div class="stat-title font-mono text-[10px] uppercase tracking-wider truncate"
+                 :class="activeFilter === 'warning' ? 'text-yellow-500' : 'text-gray-500'"
                 x-text="$store.global.t('warningPairs')">Warning</div>
             <div class="stat-desc text-yellow-500/60 text-[10px] truncate" x-text="$store.global.t('healthScoreDegraded')">70-90%</div>
         </div>
 
         <!-- Critical -->
-        <div class="stat bg-space-900/40 border border-space-border/30 rounded-xl p-3 lg:p-4 hover:border-red-500/30 hover:bg-red-500/5 transition-all duration-300 group relative min-w-0">
-            <div class="absolute top-3 right-3 text-gray-700/40 group-hover:text-red-500/70 transition-colors">
+        <div @click="setFilter('critical')"
+             class="stat border rounded-xl p-3 lg:p-4 transition-all duration-300 group relative min-w-0 cursor-pointer"
+             :class="activeFilter === 'critical'
+                ? 'bg-red-500/10 border-red-500/50 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]'
+                : 'bg-space-900/40 border-space-border/30 hover:border-red-500/30 hover:bg-red-500/5'">
+            <div class="absolute top-3 right-3 transition-colors"
+                 :class="activeFilter === 'critical' ? 'text-red-500' : 'text-gray-700/40 group-hover:text-red-500/70'">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
             <div class="stat-value text-white font-mono text-2xl lg:text-3xl font-bold mb-1 truncate" x-text="summary.critical"></div>
-            <div class="stat-title text-gray-500 font-mono text-[10px] uppercase tracking-wider truncate"
+            <div class="stat-title font-mono text-[10px] uppercase tracking-wider truncate"
+                 :class="activeFilter === 'critical' ? 'text-red-500' : 'text-gray-500'"
                 x-text="$store.global.t('criticalPairs')">Critical</div>
             <div class="stat-desc text-red-500/60 text-[10px] truncate" x-text="$store.global.t('healthScoreLow')">< 70%</div>
         </div>
 
         <!-- Disabled -->
-        <div class="stat bg-space-900/40 border border-space-border/30 rounded-xl p-3 lg:p-4 hover:border-gray-500/30 hover:bg-gray-500/5 transition-all duration-300 group relative min-w-0">
-            <div class="absolute top-3 right-3 text-gray-700/40 group-hover:text-gray-400/70 transition-colors">
+        <div @click="setFilter('disabled')"
+             class="stat border rounded-xl p-3 lg:p-4 transition-all duration-300 group relative min-w-0 cursor-pointer"
+             :class="activeFilter === 'disabled'
+                ? 'bg-gray-500/10 border-gray-500/50 shadow-[0_0_15px_-3px_rgba(107,114,128,0.2)]'
+                : 'bg-space-900/40 border-space-border/30 hover:border-gray-500/30 hover:bg-gray-500/5'">
+            <div class="absolute top-3 right-3 transition-colors"
+                 :class="activeFilter === 'disabled' ? 'text-gray-400' : 'text-gray-700/40 group-hover:text-gray-400/70'">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
             </div>
             <div class="stat-value text-white font-mono text-2xl lg:text-3xl font-bold mb-1 truncate" x-text="summary.disabled"></div>
-            <div class="stat-title text-gray-500 font-mono text-[10px] uppercase tracking-wider truncate"
+            <div class="stat-title font-mono text-[10px] uppercase tracking-wider truncate"
+                 :class="activeFilter === 'disabled' ? 'text-gray-400' : 'text-gray-500'"
                 x-text="$store.global.t('disabledPairs')">Disabled</div>
             <div class="stat-desc text-gray-500/60 text-[10px] truncate" x-text="$store.global.t('autoOrManual')">Auto/Manual</div>
         </div>
@@ -130,12 +167,12 @@
 
         <!-- Matrix Table -->
         <div x-show="!loading || matrix.length > 0" class="overflow-x-auto custom-scrollbar">
-            <table class="w-full text-xs font-mono border-collapse">
+            <table class="standard-table">
                 <thead>
                     <tr>
-                        <th class="p-3 text-left text-gray-500 font-bold border-b border-space-border/50 sticky left-0 bg-space-900 z-10" x-text="$store.global.t('account')">Account</th>
+                        <th class="p-3 text-left text-gray-500 font-bold sticky left-0 bg-space-900 z-20 border-r border-space-border/30" x-text="$store.global.t('account')">Account</th>
                         <template x-for="model in commonModels" :key="model">
-                            <th class="p-2 text-center text-gray-500 font-bold border-b border-space-border/50 whitespace-nowrap min-w-[100px]">
+                            <th class="p-2 text-center text-gray-500 font-bold whitespace-nowrap min-w-[100px]">
                                 <span x-text="model.replace('claude-', 'C-').replace('gemini-', 'G-').replace('-thinking', '')"></span>
                             </th>
                         </template>
@@ -143,16 +180,16 @@
                 </thead>
                 <tbody>
                     <template x-for="row in matrix" :key="row.account">
-                        <tr class="border-b border-space-border/10 hover:bg-white/5 transition-colors group">
-                            <td class="p-3 text-gray-400 font-medium truncate max-w-[180px] sticky left-0 bg-space-900 group-hover:bg-space-800 transition-colors z-10 border-r border-space-border/30"
+                        <tr class="group" :class="{'opacity-40 grayscale': activeFilter && !row.models.some(m => activeFilter === 'all' || (m.disabled ? activeFilter === 'disabled' : (m.healthScore >= 90 ? activeFilter === 'healthy' : (m.healthScore >= 70 ? activeFilter === 'warning' : activeFilter === 'critical'))))}">
+                            <td class="p-3 text-gray-400 font-medium truncate max-w-[180px] sticky left-0 bg-space-900 group-hover:bg-space-800 transition-colors z-10 border-r border-space-border/30 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.5)]"
                                 x-text="row.account"
                                 :title="row.account"></td>
                             <template x-for="cell in row.models" :key="cell.modelId">
                                 <td class="p-1.5 text-center">
                                     <div @click="viewAccountHealth(row.account)"
-                                         class="w-full h-8 rounded flex items-center justify-center cursor-pointer border transition-all hover:scale-105 hover:shadow-lg relative group/cell"
+                                         class="w-full h-8 rounded flex items-center justify-center cursor-pointer border relative group/cell"
                                          :class="getHealthClass(cell)">
-                                        <span class="font-bold" x-text="formatScore(cell.healthScore)"></span>
+                                        <span class="font-bold text-[10px]" x-text="formatScore(cell.healthScore)"></span>
 
                                         <!-- Tooltip -->
                                         <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:block z-50 w-48 p-2 bg-space-900 border border-space-border rounded shadow-xl text-left pointer-events-none">

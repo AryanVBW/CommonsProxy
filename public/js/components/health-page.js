@@ -14,10 +14,11 @@ window.Components.healthPage = () => ({
         critical: 0,
         disabled: 0
     },
+    activeFilter: null, // 'healthy', 'warning', 'critical', 'disabled'
     pollInterval: null,
 
-    // Models to display in the matrix
-    commonModels: [
+    // Models to display in the matrix - now from constants
+    commonModels: window.AppConstants?.MODELS?.HEALTH_MONITOR_MODELS || [
         'claude-opus-4-5-thinking',
         'claude-sonnet-4-5-thinking',
         'gemini-3-flash',
@@ -151,10 +152,39 @@ window.Components.healthPage = () => ({
     },
 
     getHealthClass(cell) {
-        if (cell.disabled) return 'bg-red-500/20 text-red-500 border-red-500/30';
-        if (cell.healthScore >= 90) return 'bg-neon-green/10 text-neon-green border-neon-green/20';
-        if (cell.healthScore >= 70) return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-        return 'bg-red-500/10 text-red-400 border-red-500/20';
+        // Base classes for colors
+        let classes = '';
+        let type = '';
+
+        if (cell.disabled) {
+            type = 'disabled';
+            classes = 'bg-red-500/20 text-red-500 border-red-500/30';
+        } else if (cell.healthScore >= 90) {
+            type = 'healthy';
+            classes = 'bg-neon-green/10 text-neon-green border-neon-green/20';
+        } else if (cell.healthScore >= 70) {
+            type = 'warning';
+            classes = 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+        } else {
+            type = 'critical';
+            classes = 'bg-red-500/10 text-red-400 border-red-500/20';
+        }
+
+        // Apply dimming if a filter is active and this cell doesn't match
+        if (this.activeFilter && this.activeFilter !== type) {
+            return classes + ' opacity-20 grayscale blur-[1px] transition-all duration-300';
+        }
+
+        return classes + ' transition-all duration-300 transform hover:scale-105 hover:z-10 shadow-lg shadow-black/20';
+    },
+
+    setFilter(filter) {
+        // Toggle off if clicking same filter
+        if (this.activeFilter === filter) {
+            this.activeFilter = null;
+        } else {
+            this.activeFilter = filter;
+        }
     },
 
     formatScore(score) {
