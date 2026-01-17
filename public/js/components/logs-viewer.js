@@ -372,6 +372,16 @@ window.Components.logsViewer = () => ({
             const limit = Alpine.store('settings')?.logLimit || window.AppConstants.LIMITS.DEFAULT_LOG_LIMIT;
             if (this.logs.length > limit) {
                 this.logs = this.logs.slice(-limit);
+
+                // Clean up expandedLogs to prevent memory leak
+                if (this.expandedLogs.size > 0) {
+                    const currentIds = new Set(this.logs.map(l => l._ui_id));
+                    for (const id of this.expandedLogs) {
+                        if (!currentIds.has(id)) {
+                            this.expandedLogs.delete(id);
+                        }
+                    }
+                }
             }
 
             if (this.isAutoScroll) {
@@ -412,5 +422,72 @@ window.Components.logsViewer = () => ({
         } catch (e) {
             return String(details);
         }
+    },
+
+    // === Export Functions ===
+
+    /**
+     * Copy visible (filtered) logs to clipboard
+     * @param {'text'|'json'} format - Output format
+     */
+    async copyVisibleLogs(format = 'text') {
+        const logsToExport = this.filteredLogs;
+
+        if (logsToExport.length === 0) {
+            Alpine.store('global').showToast('No logs to copy', 'warning');
+            return;
+        }
+
+        let content = '';
+
+        if (format === 'json') {
+            // Clean export: remove internal fields
+            const cleanLogs = logsToExport.map(({ _ui_id, _source, ...rest }) => rest);
+            content = JSON.stringify(cleanLogs, null, 2);
+        } else {
+            // Human-readable text format
+            content = logsToExport.map(log => {
+                const time = new Date(log.timestamp).toLocaleTimeString([], { hour12: false });
+                const type = log.type !== 'system' ? ` [${log.type}]` : '';
+                return `[${time}] [${log.level}]${type} ${log.message || ''}`;
+            }).join('\n');
+        }
+
+        try {
+            await navigator.clipboard.writeText(content);
+            Alpine.store('global').showToast(`Copied ${logsToExport.length} logs`, 'success');
+        } catch (e) {
+            console.error('Clipboard write failed:', e);
+            Alpine.store('global').showToast('Failed to copy to clipboard', 'error');
+        }
+    },
+
+    /**
+     * Download visible logs as a JSON file
+     */
+    downloadLogs() {
+        const logsToExport = this.filteredLogs;
+
+        if (logsToExport.length === 0) {
+            Alpine.store('global').showToast('No logs to download', 'warning');
+            return;
+        }
+
+        // Clean export: remove internal fields
+        const cleanLogs = logsToExport.map(({ _ui_id, _source, ...rest }) => rest);
+        const content = JSON.stringify(cleanLogs, null, 2);
+
+        // Create download
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        Alpine.store('global').showToast(`Downloaded ${logsToExport.length} logs`, 'success');
     }
 });

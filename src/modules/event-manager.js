@@ -167,22 +167,10 @@ export function record(eventData) {
     events.push(event);
     isDirty = true;
 
-    // Broadcast to SSE clients
+    // Broadcast to SSE clients (WebUI receives structured events via Event SSE)
+    // Note: We intentionally do NOT call logger here to avoid duplicate logs.
+    // Terminal output is handled by the original logger calls in CloudCode handlers.
     broadcast(event);
-
-    // Log based on severity
-    const logPrefix = `[Event:${event.type}]`;
-    const logMsg = `${logPrefix} ${event.message}`;
-    switch (event.severity) {
-        case Severity.ERROR:
-            logger.error(logMsg);
-            break;
-        case Severity.WARN:
-            logger.warn(logMsg);
-            break;
-        default:
-            logger.debug(logMsg);
-    }
 
     return event;
 }
