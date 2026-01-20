@@ -266,3 +266,4 @@ window.AccountActions.resetHealth = async function(email, modelId = null) {
         return { success: false, error: error.message };
     }
 };
+

@@ -83,7 +83,31 @@ window.AppConstants.VALIDATION = {
     RETENTION_DAYS_MAX: 30, // Matches slider max
 
     MAX_EVENTS_MIN: 1000,  // Matches slider and backend validation
-    MAX_EVENTS_MAX: 50000  // Matches slider max
+    MAX_EVENTS_MAX: 50000, // Matches slider max
+
+    // Max accounts range (1 - 100)
+    MAX_ACCOUNTS_MIN: 1,
+    MAX_ACCOUNTS_MAX: 100,
+
+    // Rate limit dedup window (1 - 30 seconds)
+    RATE_LIMIT_DEDUP_MIN: 1000,
+    RATE_LIMIT_DEDUP_MAX: 30000,
+
+    // Consecutive failures (1 - 10)
+    MAX_CONSECUTIVE_FAILURES_MIN: 1,
+    MAX_CONSECUTIVE_FAILURES_MAX: 10,
+
+    // Extended cooldown (10 seconds - 5 minutes)
+    EXTENDED_COOLDOWN_MIN: 10000,
+    EXTENDED_COOLDOWN_MAX: 300000,
+
+    // Capacity retry delay (500ms - 10 seconds)
+    CAPACITY_RETRY_DELAY_MIN: 500,
+    CAPACITY_RETRY_DELAY_MAX: 10000,
+
+    // Capacity retries (1 - 10)
+    MAX_CAPACITY_RETRIES_MIN: 1,
+    MAX_CAPACITY_RETRIES_MAX: 10
 };
 
 /**
