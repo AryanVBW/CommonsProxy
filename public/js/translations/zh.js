@@ -382,6 +382,13 @@ window.translations.zh = {
     // mustBeTrueOrFalse: "Value must be true or false",
 
     // Account Selection Strategy translations
+    // 健康功能新增
+    quotaPollInterval: "配额轮询间隔",
+    quotaPollIntervalDesc: "在后台轮询 Google 以更新配额数据的频率",
+    staleIssueInterval: "自动解决过期问题",
+    staleIssueDesc: "在此时间内未再次发生的问题将被自动标记为已解决",
+    resolved: "已解决",
+    acknowledged: "已确认",
     accountSelectionStrategy: "账户选择策略",
     selectionStrategy: "选择策略",
     strategyStickyLabel: "固定 (缓存优化)",

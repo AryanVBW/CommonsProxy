@@ -369,6 +369,13 @@ window.translations.en = {
     failedToUpdateModelConfig: "Failed to update model config",
     fieldUpdated: "{displayName} updated to {value}",
     failedToUpdateField: "Failed to update {displayName}",
+    // Health Feature Additions
+    quotaPollInterval: "Polling Interval",
+    quotaPollIntervalDesc: "How often to poll Google for quota updates in the background",
+    staleIssueInterval: "Auto-resolve Stale Issues",
+    staleIssueDesc: "Automatically resolve issues that haven't occurred for this duration",
+    resolved: "Resolved",
+    acknowledged: "Acknowledged",
     // Account Selection Strategy
     accountSelectionStrategy: "Account Selection Strategy",
     selectionStrategy: "Selection Strategy",

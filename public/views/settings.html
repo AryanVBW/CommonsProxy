@@ -1078,6 +1078,26 @@
                             </div>
                             <p class="text-[9px] text-gray-600 mt-1 leading-tight" x-text="$store.global.t('quotaRecoveryModeDesc') || 'When to re-enable: at API quota reset time, or after fixed recovery hours'">When to re-enable: at API quota reset time, or after fixed recovery hours</p>
                         </div>
+
+                        <div class="form-control" x-show="healthConfig.quotaThresholdEnabled">
+                            <label class="label pt-0">
+                                <span class="label-text text-gray-400 text-xs" x-text="$store.global.t('quotaPollInterval') || 'Polling Interval'">Polling Interval</span>
+                                <span class="label-text-alt font-mono text-yellow-500 text-xs font-semibold" x-text="Math.round((healthConfig.quotaPollIntervalMs || 300000) / 60000) + 'm'"></span>
+                            </label>
+                            <div class="flex gap-3 items-center">
+                                <input type="range" min="1" max="60" class="custom-range custom-range-yellow flex-1"
+                                    :value="Math.round((healthConfig.quotaPollIntervalMs || 300000) / 60000)"
+                                    :style="`background-size: ${((healthConfig.quotaPollIntervalMs || 300000) / 60000 - 1) / 59 * 100}% 100%`"
+                                    @input="setQuotaPollInterval($event.target.value)"
+                                    aria-label="Quota poll interval slider">
+                                <input type="number" min="1" max="60"
+                                    class="input input-xs input-bordered w-16 bg-space-800 border-space-border text-white font-mono text-center"
+                                    :value="Math.round((healthConfig.quotaPollIntervalMs || 300000) / 60000)"
+                                    @change="setQuotaPollInterval($event.target.value)"
+                                    aria-label="Quota poll interval value">
+                            </div>
+                            <p class="text-[9px] text-gray-600 mt-1 leading-tight" x-text="$store.global.t('quotaPollIntervalDesc') || 'How often to poll Google for quota updates in the background'">How often to poll Google for quota updates in the background</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1091,11 +1111,31 @@
                         </div>
                         <div>
                             <span class="text-sm font-semibold text-gray-200" x-text="$store.global.t('healthDataRetention')">Data Retention</span>
-                            <span class="text-[10px] text-gray-600 block" x-text="$store.global.t('healthDataRetentionDesc') || 'Configure event log storage limits'">Configure event log storage limits</span>
+                            <span class="text-[10px] text-gray-600 block" x-text="$store.global.t('healthDataRetentionDesc') || 'Configure event log storage and cleanup'">Configure event log storage and cleanup</span>
                         </div>
                     </div>
 
                     <div class="space-y-4">
+                        <div class="form-control">
+                            <label class="label pt-0">
+                                <span class="label-text text-gray-400 text-xs" x-text="$store.global.t('staleIssueInterval') || 'Auto-resolve Stale Issues'">Auto-resolve Stale Issues</span>
+                                <span class="label-text-alt font-mono text-neon-purple text-xs font-semibold" x-text="Math.round((healthConfig.staleIssueMs || 1800000) / 60000) + 'm'"></span>
+                            </label>
+                            <div class="flex gap-3 items-center">
+                                <input type="range" min="5" max="120" class="custom-range custom-range-purple flex-1"
+                                    :value="Math.round((healthConfig.staleIssueMs || 1800000) / 60000)"
+                                    :style="`background-size: ${((healthConfig.staleIssueMs || 1800000) / 60000 - 5) / 115 * 100}% 100%`"
+                                    @input="setStaleIssueInterval($event.target.value)"
+                                    aria-label="Stale issue interval slider">
+                                <input type="number" min="5" max="120"
+                                    class="input input-xs input-bordered w-16 bg-space-800 border-space-border text-white font-mono text-center"
+                                    :value="Math.round((healthConfig.staleIssueMs || 1800000) / 60000)"
+                                    @change="setStaleIssueInterval($event.target.value)"
+                                    aria-label="Stale issue interval value">
+                            </div>
+                            <p class="text-[9px] text-gray-600 mt-1 leading-tight" x-text="$store.global.t('staleIssueDesc') || 'Automatically resolve issues that haven\'t occurred for this duration'">Automatically resolve issues that haven't occurred for this duration</p>
+                        </div>
+
                         <div class="form-control">
                             <label class="label pt-0">
                                 <span class="label-text text-gray-400 text-xs" x-text="$store.global.t('healthMaxEvents')">Max Events</span>

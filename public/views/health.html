@@ -234,6 +234,20 @@
                 <h3 class="text-sm font-bold text-white tracking-wide uppercase" x-text="$store.global.t('activeIssues')">Active Issues</h3>
                 <span class="text-[10px] text-yellow-500 font-mono bg-yellow-500/10 px-2 py-0.5 rounded" x-text="issues.length"></span>
             </div>
+
+            <!-- Issue Stats Mini-Dashboard -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 text-[10px] font-mono">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-gray-500" x-text="$store.global.t('resolved') || 'Resolved'">Resolved</span>
+                        <span class="text-neon-green font-bold" x-text="issueStats.resolved || 0"></span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-gray-500" x-text="$store.global.t('acknowledged') || 'Acked'">Acked</span>
+                        <span class="text-blue-400 font-bold" x-text="issueStats.acknowledged || 0"></span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="space-y-2">

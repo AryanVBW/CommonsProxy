@@ -379,6 +379,18 @@ window.Components.serverConfig = () => ({
         if (validation.isValid) this.updateHealthConfig({ eventRetentionDays: validation.value });
     },
 
+    setQuotaPollInterval(value) {
+        const { QUOTA_POLL_INTERVAL_MIN, QUOTA_POLL_INTERVAL_MAX } = window.AppConstants.VALIDATION;
+        const validation = window.Validators.validateRange(value, QUOTA_POLL_INTERVAL_MIN, QUOTA_POLL_INTERVAL_MAX, 'Poll Interval');
+        if (validation.isValid) this.updateHealthConfig({ quotaPollIntervalMs: validation.value * 60 * 1000 });
+    },
+
+    setStaleIssueInterval(value) {
+        const { STALE_ISSUE_MIN, STALE_ISSUE_MAX } = window.AppConstants.VALIDATION;
+        const validation = window.Validators.validateRange(value, STALE_ISSUE_MIN, STALE_ISSUE_MAX, 'Stale Issue Interval');
+        if (validation.isValid) this.updateHealthConfig({ staleIssueMs: validation.value * 60 * 1000 });
+    },
+
     // Quota Protection Settings
     setQuotaThreshold(value) {
         // value is percentage (5-50), convert to fraction (0.05-0.5)

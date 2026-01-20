@@ -8,6 +8,12 @@ window.Components.healthPage = () => ({
     matrix: [],
     loading: false,
     issues: [],
+    issueStats: {
+        active: 0,
+        acknowledged: 0,
+        resolved: 0,
+        bySeverity: { critical: 0, high: 0, medium: 0, low: 0 }
+    },
     summary: {
         healthy: 0,
         warning: 0,
@@ -144,6 +150,17 @@ window.Components.healthPage = () => ({
             if (response.ok) {
                 const data = await response.json();
                 this.issues = (data.issues || []).filter(i => i.status === 'active');
+            }
+
+            // Load stats
+            const statsRes = await window.utils.request(
+                '/api/issues/stats',
+                {},
+                globalStore.webuiPassword
+            );
+            if (statsRes.response.ok) {
+                const statsData = await statsRes.response.json();
+                this.issueStats = statsData.stats;
             }
         } catch (error) {
             // Issues endpoint may not exist yet, ignore silently

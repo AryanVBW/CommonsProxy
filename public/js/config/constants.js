@@ -85,6 +85,14 @@ window.AppConstants.VALIDATION = {
     MAX_EVENTS_MIN: 1000,  // Matches slider and backend validation
     MAX_EVENTS_MAX: 50000, // Matches slider max
 
+    // Quota polling interval (1 - 60 minutes)
+    QUOTA_POLL_INTERVAL_MIN: 1,
+    QUOTA_POLL_INTERVAL_MAX: 60,
+
+    // Stale issue interval (5 - 120 minutes)
+    STALE_ISSUE_MIN: 5,
+    STALE_ISSUE_MAX: 120,
+
     // Max accounts range (1 - 100)
     MAX_ACCOUNTS_MIN: 1,
     MAX_ACCOUNTS_MAX: 100,
