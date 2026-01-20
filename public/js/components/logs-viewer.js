@@ -131,13 +131,6 @@ window.Components.logsViewer = () => ({
         // Watch logs to update summary
         this.$watch('logs', () => this.updateSummary());
 
-        // Listen for issue updates from issue-banner component
-        window.addEventListener('issues-updated', (e) => {
-            if (e.detail && typeof e.detail.count === 'number') {
-                this.summary.activeIssues = e.detail.count;
-            }
-        });
-
         // Watch filters to maintain auto-scroll if enabled
         this.$watch('searchQuery', () => { if(this.isAutoScroll) this.$nextTick(() => this.scrollToBottom()) });
         this.$watch('filters', () => { if(this.isAutoScroll) this.$nextTick(() => this.scrollToBottom()) });
@@ -164,6 +157,9 @@ window.Components.logsViewer = () => ({
         this.summary.authFailures = recentLogs.filter(l => l.type === 'auth_failure').length;
         this.summary.apiErrors = recentLogs.filter(l => l.type === 'api_error').length;
         this.summary.errors = recentLogs.filter(l => l.level === 'ERROR').length;
+
+        // activeIssues = sum of problem types (respects time range filter)
+        this.summary.activeIssues = this.summary.rateLimits + this.summary.authFailures + this.summary.apiErrors;
     },
 
     toggleProblemOnly() {
