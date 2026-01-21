@@ -236,7 +236,7 @@
                             :value="selectedPresetName"
                             @change="onPresetSelect($event.target.value)"
                             aria-label="Select preset">
-                            <option value="" disabled x-show="presets.length === 0">No presets available</option>
+                            <option value="" disabled x-show="presets.length === 0" x-text="$store.global.t('noPresetsAvailable')">No presets available</option>
                             <template x-for="preset in presets" :key="preset.name">
                                 <option :value="preset.name" x-text="preset.name" :selected="preset.name === selectedPresetName"></option>
                             </template>

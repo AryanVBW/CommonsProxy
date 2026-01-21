@@ -29,12 +29,13 @@
                             </div>
                             <p class="opacity-80 mt-0.5" x-text="issue.description"></p>
                             <div class="flex items-center gap-2 mt-2" x-show="issue.suggestion">
-                                <span class="opacity-60">Suggestion:</span>
+                                <span class="opacity-60" x-text="$store.global.t('suggestion')">Suggestion:</span>
                                 <span class="font-medium" x-text="issue.suggestion"></span>
                             </div>
                         </div>
                         <button type="button" @click="resolveIssue(issue.id)"
-                            class="shrink-0 px-2 py-1 rounded bg-black/20 hover:bg-black/40 transition-colors text-[10px] font-mono border border-current opacity-60 hover:opacity-100">
+                            class="shrink-0 px-2 py-1 rounded bg-black/20 hover:bg-black/40 transition-colors text-[10px] font-mono border border-current opacity-60 hover:opacity-100"
+                            x-text="$store.global.t('resolve')">
                             RESOLVE
                         </button>
                     </div>
@@ -76,7 +77,7 @@
                     <svg class="w-3 h-3" :class="onlyProblems ? 'animate-pulse' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <span class="hidden md:inline">Problems Only</span>
+                    <span class="hidden md:inline" x-text="$store.global.t('problemsOnly')">Problems Only</span>
                 </button>
 
                 <!-- Filters Dropdown -->
@@ -84,7 +85,7 @@
                     <button type="button" @click="open = !open"
                         class="flex items-center gap-2 px-3 py-1 bg-space-950 border border-space-border rounded text-[10px] font-mono hover:border-neon-purple/50 transition-colors"
                         :class="{'border-neon-purple/50 bg-neon-purple/5': hasActiveFilters()}">
-                        <span class="text-gray-400">Filters</span>
+                        <span class="text-gray-400" x-text="$store.global.t('filter')">Filters</span>
                         <span x-show="hasActiveFilters()" class="w-1.5 h-1.5 rounded-full bg-neon-purple animate-pulse"></span>
                         <svg class="w-3 h-3 text-gray-500" :class="{'rotate-180': open}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -97,18 +98,21 @@
 
                         <!-- Quick Actions -->
                         <div class="flex items-center justify-between gap-2">
-                            <span class="text-[9px] font-bold text-gray-600 uppercase">Quick</span>
+                            <span class="text-[9px] font-bold text-gray-600 uppercase" x-text="$store.global.t('quick')">Quick</span>
                             <div class="flex gap-1">
                                 <button type="button" @click="selectAllFilters()"
-                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-neon-green/20 text-gray-400 hover:text-neon-green rounded transition-colors">
+                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-neon-green/20 text-gray-400 hover:text-neon-green rounded transition-colors"
+                                    x-text="$store.global.t('all')">
                                     All
                                 </button>
                                 <button type="button" @click="selectNoFilters()"
-                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded transition-colors">
+                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded transition-colors"
+                                    x-text="$store.global.t('none')">
                                     None
                                 </button>
                                 <button type="button" @click="resetFilters()"
-                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-neon-purple/20 text-gray-400 hover:text-neon-purple rounded transition-colors">
+                                    class="px-2 py-0.5 text-[9px] font-mono bg-space-800 hover:bg-neon-purple/20 text-gray-400 hover:text-neon-purple rounded transition-colors"
+                                    x-text="$store.global.t('restoreDefault')">
                                     Reset
                                 </button>
                             </div>
@@ -119,34 +123,34 @@
                         <!-- Severity -->
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[9px] font-bold text-gray-500 uppercase">Severity</span>
+                                <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="$store.global.t('severity')">Severity</span>
                                 <button type="button" @click="toggleAllLevels()" class="text-[9px] text-gray-600 hover:text-gray-400">toggle</button>
                             </div>
                             <div class="flex flex-wrap gap-1">
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.INFO ? 'bg-blue-500/10 text-blue-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.INFO">
-                                    <span class="text-[10px] font-medium">INFO</span>
+                                    <span class="text-[10px] font-medium" x-text="$store.global.t('logLevelInfo')">INFO</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.SUCCESS ? 'bg-emerald-500/10 text-emerald-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.SUCCESS">
-                                    <span class="text-[10px] font-medium">SUCCESS</span>
+                                    <span class="text-[10px] font-medium" x-text="$store.global.t('logLevelSuccess')">SUCCESS</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.WARN ? 'bg-yellow-500/10 text-yellow-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.WARN">
-                                    <span class="text-[10px] font-medium">WARN</span>
+                                    <span class="text-[10px] font-medium" x-text="$store.global.t('logLevelWarn')">WARN</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.ERROR ? 'bg-red-500/10 text-red-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.ERROR">
-                                    <span class="text-[10px] font-medium">ERROR</span>
+                                    <span class="text-[10px] font-medium" x-text="$store.global.t('logLevelError')">ERROR</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.DEBUG ? 'bg-purple-500/10 text-purple-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.DEBUG">
-                                    <span class="text-[10px] font-medium">DEBUG</span>
+                                    <span class="text-[10px] font-medium" x-text="$store.global.t('debugMode')">DEBUG</span>
                                 </label>
                             </div>
                         </div>
@@ -156,49 +160,49 @@
                         <!-- Event Types -->
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-[9px] font-bold text-gray-500 uppercase">Event Type</span>
+                                <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="$store.global.t('eventType')">Event Type</span>
                                 <button type="button" @click="toggleAllTypes()" class="text-[9px] text-gray-600 hover:text-gray-400">toggle</button>
                             </div>
                             <div class="grid grid-cols-2 gap-1">
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.request ? 'bg-gray-500/10 text-gray-300' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.request">
-                                    <span class="text-[10px]">Requests</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('requests')">Requests</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.rate_limit ? 'bg-orange-500/10 text-orange-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.rate_limit">
-                                    <span class="text-[10px]">Rate Limits</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('rateLimits')">Rate Limits</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.auth_failure ? 'bg-red-500/10 text-red-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.auth_failure">
-                                    <span class="text-[10px]">Auth Failures</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('authFailures')">Auth Failures</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.api_error ? 'bg-red-600/10 text-red-500' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.api_error">
-                                    <span class="text-[10px]">API Errors</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('apiErrors')">API Errors</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.fallback ? 'bg-yellow-500/10 text-yellow-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.fallback">
-                                    <span class="text-[10px]">Fallbacks</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('fallbacks')">Fallbacks</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.account_switch ? 'bg-cyan-500/10 text-cyan-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.account_switch">
-                                    <span class="text-[10px]">Acc Switch</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('accSwitch')">Acc Switch</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors"
                                     :class="filters.health_change ? 'bg-pink-500/10 text-pink-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.health_change">
-                                    <span class="text-[10px]">Health</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('health')">Health</span>
                                 </label>
                                 <label class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors col-span-2"
                                     :class="filters.system ? 'bg-space-700 text-gray-400' : 'bg-space-800 text-gray-600 hover:text-gray-400'">
                                     <input type="checkbox" class="hidden" x-model="filters.system">
-                                    <span class="text-[10px]">System Logs</span>
+                                    <span class="text-[10px]" x-text="$store.global.t('systemLogs')">System Logs</span>
                                 </label>
                             </div>
                         </div>
@@ -211,7 +215,7 @@
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <span>View Stats</span>
+                    <span x-text="$store.global.t('viewStats')">View Stats</span>
                 </button>
             </div>
 
@@ -241,7 +245,7 @@
 
                         <!-- Group: Copy -->
                         <div class="px-2 py-1.5 mb-1">
-                            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Copy to Clipboard</span>
+                            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest" x-text="$store.global.t('copyToClipboard')">Copy to Clipboard</span>
                         </div>
 
                         <button type="button"
@@ -270,7 +274,7 @@
 
                         <!-- Group: Download -->
                         <div class="px-2 py-1.5 mb-1">
-                            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Export File</span>
+                            <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest" x-text="$store.global.t('exportFile')">Export File</span>
                         </div>
 
                         <button type="button"
@@ -324,7 +328,7 @@
             <div class="flex items-center gap-2 cursor-pointer group" @click="showActiveIssues()">
                 <div class="w-1.5 h-1.5 rounded-full" :class="summary.activeIssues > 0 ? 'bg-red-500 animate-pulse' : 'bg-gray-700'"></div>
                 <span class="text-[10px] font-mono text-gray-400 group-hover:text-white transition-colors">
-                    <span class="font-bold text-white" x-text="summary.activeIssues"></span> Active Issues
+                    <span class="font-bold text-white" x-text="summary.activeIssues"></span> <span x-text="$store.global.t('activeIssues')">Active Issues</span>
                 </span>
             </div>
 
@@ -333,28 +337,28 @@
             <!-- Rate Limits -->
             <div class="flex items-center gap-2 cursor-pointer group" @click="quickFilter('rate_limit')">
                 <span class="text-[10px] font-mono text-gray-400 group-hover:text-orange-400 transition-colors">
-                    ⚠️ <span class="font-bold text-white group-hover:text-orange-400" x-text="summary.rateLimits"></span> Rate Limits
+                    ⚠️ <span class="font-bold text-white group-hover:text-orange-400" x-text="summary.rateLimits"></span> <span x-text="$store.global.t('rateLimits')">Rate Limits</span>
                 </span>
             </div>
 
             <!-- Auth Failures -->
             <div class="flex items-center gap-2 cursor-pointer group" @click="quickFilter('auth_failure')">
                 <span class="text-[10px] font-mono text-gray-400 group-hover:text-red-400 transition-colors">
-                    🔑 <span class="font-bold text-white group-hover:text-red-400" x-text="summary.authFailures"></span> Auth Failures
+                    🔑 <span class="font-bold text-white group-hover:text-red-400" x-text="summary.authFailures"></span> <span x-text="$store.global.t('authFailures')">Auth Failures</span>
                 </span>
             </div>
 
             <!-- API Errors -->
             <div class="flex items-center gap-2 cursor-pointer group" @click="quickFilter('api_error')">
                 <span class="text-[10px] font-mono text-gray-400 group-hover:text-red-500 transition-colors">
-                    💥 <span class="font-bold text-white group-hover:text-red-500" x-text="summary.apiErrors"></span> API Errors
+                    💥 <span class="font-bold text-white group-hover:text-red-500" x-text="summary.apiErrors"></span> <span x-text="$store.global.t('apiErrors')">API Errors</span>
                 </span>
             </div>
 
             <!-- Errors -->
             <div class="flex items-center gap-2 cursor-pointer group" @click="quickFilterLevel('ERROR')">
                 <span class="text-[10px] font-mono text-gray-400 group-hover:text-red-500 transition-colors">
-                    🚫 <span class="font-bold text-white group-hover:text-red-500" x-text="summary.errors"></span> Errors
+                    🚫 <span class="font-bold text-white group-hover:text-red-500" x-text="summary.errors"></span> <span x-text="$store.global.t('logLevelError')">Errors</span>
                 </span>
             </div>
 
@@ -423,9 +427,9 @@
                         <div x-show="log.requestId || log.account || log.model"
                              class="flex gap-4 text-[10px] text-zinc-500"
                              :class="{'mt-2 pt-2 border-t border-white/5': log.details && Object.keys(log.details).length > 0}">
-                            <span x-show="log.requestId">ReqID: <span class="text-zinc-400 select-all" x-text="log.requestId"></span></span>
-                            <span x-show="log.account">Account: <span class="text-zinc-400 select-all" x-text="log.account"></span></span>
-                            <span x-show="log.model">Model: <span class="text-zinc-400 select-all" x-text="log.model"></span></span>
+                            <span x-show="log.requestId"><span x-text="$store.global.t('reqId')">ReqID:</span> <span class="text-zinc-400 select-all" x-text="log.requestId"></span></span>
+                            <span x-show="log.account"><span x-text="$store.global.t('accountLabel')">Account:</span> <span class="text-zinc-400 select-all" x-text="log.account"></span></span>
+                            <span x-show="log.model"><span x-text="$store.global.t('modelLabel')">Model:</span> <span class="text-zinc-400 select-all" x-text="log.model"></span></span>
                         </div>
                     </div>
                 </div>
