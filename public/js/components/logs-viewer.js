@@ -12,6 +12,8 @@ window.Components.logsViewer = () => ({
     eventEventSource: null,  // New structured event stream
     searchQuery: '',
     expandedLogs: new Set(), // Track expanded log IDs
+    _reconnectDelay: 3000,   // Initial reconnect delay (3s)
+    _maxReconnectDelay: 60000, // Maximum reconnect delay (60s)
 
     // Time range filter
     timeRange: '1h',  // Default: 1 hour
@@ -295,11 +297,19 @@ window.Components.logsViewer = () => ({
         this.logEventSource = new EventSource(logUrl);
         this.logEventSource.onmessage = (event) => {
             this.handleLogMessage(event.data, 'logger');
+            // Reset reconnect delay on successful message
+            this._reconnectDelay = 3000;
         };
         this.logEventSource.onerror = () => {
-            console.warn('Logger stream disconnected, reconnecting...');
+            console.warn(`Logger stream disconnected, reconnecting in ${this._reconnectDelay}ms...`);
             this.logEventSource.close();
-            setTimeout(() => this.startLogStreams(), 3000);
+
+            // Exponential backoff: double delay on each failure, cap at max
+            setTimeout(() => {
+                this.startLogStreams();
+            }, this._reconnectDelay);
+
+            this._reconnectDelay = Math.min(this._reconnectDelay * 2, this._maxReconnectDelay);
         };
 
         // 2. New structured event stream (for rate_limit, auth_failure, fallback, etc.)
