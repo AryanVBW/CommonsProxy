@@ -1,11 +1,11 @@
 {
-  "name": "antigravity-claude-proxy",
+  "name": "commons-proxy",
   "version": "1.2.6",
-  "description": "Proxy server to use Antigravity's Claude models with Claude Code CLI",
+  "description": "Universal proxy server for Claude Code CLI - supports multiple AI providers including Google Cloud Code, GitHub Copilot, and more",
   "main": "src/index.js",
   "type": "module",
   "bin": {
-    "antigravity-claude-proxy": "bin/cli.js"
+    "commons-proxy": "bin/cli.js"
   },
   "files": [
     "src",
@@ -41,7 +41,9 @@
   "keywords": [
     "claude",
     "anthropic",
-    "antigravity",
+    "commons",
+    "multi-provider",
+    "copilot",
     "proxy",
     "vertex-ai"
   ],
@@ -49,11 +51,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/badri-s2001/antigravity-claude-proxy.git"
+    "url": "git+https://github.com/AryanVBW/CommonsProxy.git"
   },
-  "homepage": "https://github.com/badri-s2001/antigravity-claude-proxy#readme",
+  "homepage": "https://github.com/AryanVBW/CommonsProxy#readme",
   "bugs": {
-    "url": "https://github.com/badri-s2001/antigravity-claude-proxy/issues"
+    "url": "https://github.com/AryanVBW/CommonsProxy/issues"
   },
   "engines": {
     "node": ">=18.0.0"

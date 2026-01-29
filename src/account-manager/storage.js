@@ -70,7 +70,7 @@ export function loadDefaultAccount(dbPath) {
         const authData = getAuthStatus(dbPath);
         if (authData?.apiKey) {
             const account = {
-                email: authData.email || 'default@antigravity',
+                email: authData.email || 'default@commons',
                 source: 'database',
                 lastUsed: null,
                 modelRateLimits: {}

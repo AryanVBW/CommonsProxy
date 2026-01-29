@@ -188,7 +188,7 @@ export function parseResetTime(responseOrError, errorText = '') {
 
 /**
  * Parse the rate limit reason from error text
- * Used for smart backoff by error type (matches opencode-antigravity-auth)
+ * Used for smart backoff by error type (matches opencode-cloudcode-auth)
  *
  * @param {string} errorText - Error message/body text
  * @returns {'RATE_LIMIT_EXCEEDED' | 'QUOTA_EXHAUSTED' | 'MODEL_CAPACITY_EXHAUSTED' | 'SERVER_ERROR' | 'UNKNOWN'} Error reason

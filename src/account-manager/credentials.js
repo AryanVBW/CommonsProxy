@@ -5,7 +5,7 @@
  */
 
 import {
-    ANTIGRAVITY_DB_PATH,
+    CLOUDCODE_DB_PATH,
     TOKEN_REFRESH_INTERVAL_MS,
     LOAD_CODE_ASSIST_ENDPOINTS,
     LOAD_CODE_ASSIST_HEADERS,
@@ -102,7 +102,7 @@ export async function getTokenForAccount(account, tokenCache, onInvalid, onSave)
         token = account.apiKey;
     } else {
         // Extract from database
-        const dbPath = account.dbPath || ANTIGRAVITY_DB_PATH;
+        const dbPath = account.dbPath || CLOUDCODE_DB_PATH;
         const authData = getAuthStatus(dbPath);
         token = authData.apiKey;
     }
@@ -118,7 +118,7 @@ export async function getTokenForAccount(account, tokenCache, onInvalid, onSave)
 
 /**
  * Get project ID for an account
- * Aligned with opencode-antigravity-auth: parses refresh token for stored project IDs
+ * Aligned with opencode-cloudcode-auth: parses refresh token for stored project IDs
  *
  * @param {Object} account - Account object
  * @param {string} token - OAuth access token
@@ -133,7 +133,7 @@ export async function getProjectForAccount(account, token, projectCache, onSave 
         return cached;
     }
 
-    // Parse refresh token to get stored project IDs (aligned with opencode-antigravity-auth)
+    // Parse refresh token to get stored project IDs (aligned with opencode-cloudcode-auth)
     const parts = account.refreshToken ? parseRefreshParts(account.refreshToken) : { refreshToken: null, projectId: undefined, managedProjectId: undefined };
 
     // If we have a managedProjectId in the refresh token, use it
@@ -157,7 +157,7 @@ export async function getProjectForAccount(account, token, projectCache, onSave 
     }
 
     // Discover managed project, passing projectId for metadata.duetProject
-    // Reference: opencode-antigravity-auth - discoverProject handles fallback internally
+    // Reference: opencode-cloudcode-auth - discoverProject handles fallback internally
     const { project, subscription } = await discoverProject(token, parts.projectId);
 
     // Store managedProjectId back in refresh token (if we got a real project)
@@ -278,14 +278,14 @@ export async function discoverProject(token, projectId = undefined) {
 
     // If we got a successful response but no project, try onboarding
     if (gotSuccessfulResponse && loadCodeAssistData) {
-        // Only use allowedTiers for onboarding (matching opencode-antigravity-auth and oauth.js)
+        // Only use allowedTiers for onboarding (matching opencode-cloudcode-auth and oauth.js)
         // Note: paidTier (g1-pro-tier, g1-ultra-tier) is NOT valid for onboardUser API
         // The paidTier is used for subscription detection only, not for onboarding
         const tierId = getDefaultTierId(loadCodeAssistData.allowedTiers) || 'free-tier';
         logger.info(`[AccountManager] Onboarding user with tier: ${tierId}`);
 
         // Pass projectId for metadata.duetProject (without fallback, matching reference)
-        // Reference: opencode-antigravity-auth passes parts.projectId (not fallback) to onboardManagedProject
+        // Reference: opencode-cloudcode-auth passes parts.projectId (not fallback) to onboardManagedProject
         const onboardedProject = await onboardUser(
             token,
             tierId,
@@ -306,7 +306,7 @@ export async function discoverProject(token, projectId = undefined) {
     }
 
     // Fallback: use projectId if available, otherwise use default
-    // Reference: opencode-antigravity-auth/src/plugin/project.ts
+    // Reference: opencode-cloudcode-auth/src/plugin/project.ts
     if (projectId) {
         return { project: projectId, subscription: null };
     }

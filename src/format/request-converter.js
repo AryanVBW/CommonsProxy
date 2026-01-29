@@ -235,7 +235,7 @@ export function convertAnthropicToGoogle(anthropicRequest) {
         logger.debug(`[RequestConverter] Tools: ${JSON.stringify(googleRequest.tools).substring(0, 300)}`);
 
         // For Claude models, set functionCallingConfig.mode = "VALIDATED"
-        // This ensures strict parameter validation (matches opencode-antigravity-auth)
+        // This ensures strict parameter validation (matches opencode-cloudcode-auth)
         if (isClaudeModel) {
             googleRequest.toolConfig = {
                 functionCallingConfig: {

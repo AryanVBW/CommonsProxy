@@ -49,7 +49,7 @@ window.translations.zh = {
     operations: "操作",
     delete: "删除",
     confirmDelete: "确定要移除此账号吗？",
-    cannotDeleteDatabase: "无法删除：此账号来自 Antigravity 数据库（只读）",
+    cannotDeleteDatabase: "无法删除：此账号来自 CommonsProxy 数据库（只读）",
     connectGoogle: "连接 Google 账号",
     reauthenticated: "已重新认证",
     added: "已添加",
@@ -136,9 +136,9 @@ window.translations.zh = {
     saveConfig: "保存到 Claude CLI 设置",
     envVar: "环境变量",
     // New Keys
-    systemName: "ANTIGRAVITY",
+    systemName: "COMMONSPROXY",
     systemDesc: "CLAUDE 代理系统",
-    connectGoogleDesc: "连接 Google Workspace 账号以增加 API 配额。该账号将用于通过 Antigravity 代理 Claude 请求。",
+    connectGoogleDesc: "连接 Google Workspace 账号以增加 API 配额。该账号将用于通过 CommonsProxy 代理 Claude 请求。",
     useCliCommand: "使用命令行",
     close: "关闭",
     requestVolume: "请求量",
@@ -316,7 +316,7 @@ window.translations.zh = {
     importFailed: "导入失败",
 
     // TODO: Missing translations - Hardcoded strings from HTML
-    // pageTitle: "Antigravity Console",
+    // pageTitle: "CommonsProxy Console",
     // live: "Live",
     // tier: "Tier",
     // quota: "Quota",

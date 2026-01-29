@@ -79,7 +79,7 @@ export class BaseStrategy {
         // Skip disabled accounts
         if (account.enabled === false) return false;
 
-        // Check if account is cooling down (matches opencode-antigravity-auth)
+        // Check if account is cooling down (matches opencode-cloudcode-auth)
         if (isAccountCoolingDown(account)) return false;
 
         // Check model-specific rate limit

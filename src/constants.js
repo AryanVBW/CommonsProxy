@@ -1,6 +1,7 @@
 /**
- * Constants for Antigravity Cloud Code API integration
- * Based on: https://github.com/NoeFabris/opencode-antigravity-auth
+ * Constants for CommonsProxy - Cloud Code API integration
+ * Based on: https://github.com/NoeFabris/opencode-cloudcode-auth
+ * Enhanced with multi-provider support inspired by opencode
  */
 
 import { homedir, platform, arch } from 'os';
@@ -8,46 +9,49 @@ import { join } from 'path';
 import { config } from './config.js';
 
 /**
- * Get the Antigravity database path based on the current platform.
- * - macOS: ~/Library/Application Support/Antigravity/...
- * - Windows: ~/AppData/Roaming/Antigravity/...
- * - Linux/other: ~/.config/Antigravity/...
- * @returns {string} Full path to the Antigravity state database
+ * Get the Cloud Code IDE database path based on the current platform.
+ * - macOS: ~/Library/Application Support/Windsurf/... (or Cursor, etc.)
+ * - Windows: ~/AppData/Roaming/Windsurf/...
+ * - Linux/other: ~/.config/Windsurf/...
+ * @returns {string} Full path to the IDE state database
  */
-function getAntigravityDbPath() {
+function getCloudCodeDbPath() {
     const home = homedir();
     switch (platform()) {
         case 'darwin':
-            return join(home, 'Library/Application Support/Antigravity/User/globalStorage/state.vscdb');
+            return join(home, 'Library/Application Support/Windsurf/User/globalStorage/state.vscdb');
         case 'win32':
-            return join(home, 'AppData/Roaming/Antigravity/User/globalStorage/state.vscdb');
+            return join(home, 'AppData/Roaming/Windsurf/User/globalStorage/state.vscdb');
         default: // linux, freebsd, etc.
-            return join(home, '.config/Antigravity/User/globalStorage/state.vscdb');
+            return join(home, '.config/Windsurf/User/globalStorage/state.vscdb');
     }
 }
 
 /**
  * Generate platform-specific User-Agent string.
- * @returns {string} User-Agent in format "antigravity/version os/arch"
+ * @returns {string} User-Agent in format "commons-proxy/version os/arch"
  */
 function getPlatformUserAgent() {
     const os = platform();
     const architecture = arch();
-    return `antigravity/1.11.5 ${os}/${architecture}`;
+    return `commons-proxy/1.0.0 ${os}/${architecture}`;
 }
 
 // Cloud Code API endpoints (in fallback order)
-const ANTIGRAVITY_ENDPOINT_DAILY = 'https://daily-cloudcode-pa.googleapis.com';
-const ANTIGRAVITY_ENDPOINT_PROD = 'https://cloudcode-pa.googleapis.com';
+const CLOUDCODE_ENDPOINT_DAILY = 'https://daily-cloudcode-pa.googleapis.com';
+const CLOUDCODE_ENDPOINT_PROD = 'https://cloudcode-pa.googleapis.com';
 
 // Endpoint fallback order (daily → prod)
-export const ANTIGRAVITY_ENDPOINT_FALLBACKS = [
-    ANTIGRAVITY_ENDPOINT_DAILY,
-    ANTIGRAVITY_ENDPOINT_PROD
+export const CLOUDCODE_ENDPOINT_FALLBACKS = [
+    CLOUDCODE_ENDPOINT_DAILY,
+    CLOUDCODE_ENDPOINT_PROD
 ];
 
-// Required headers for Antigravity API requests
-export const ANTIGRAVITY_HEADERS = {
+// Legacy alias for backward compatibility
+export const ANTIGRAVITY_ENDPOINT_FALLBACKS = CLOUDCODE_ENDPOINT_FALLBACKS;
+
+// Required headers for Cloud Code API requests
+export const CLOUDCODE_HEADERS = {
     'User-Agent': getPlatformUserAgent(),
     'X-Goog-Api-Client': 'google-cloud-sdk vscode_cloudshelleditor/0.1',
     'Client-Metadata': JSON.stringify({
@@ -60,15 +64,18 @@ export const ANTIGRAVITY_HEADERS = {
 // Endpoint order for loadCodeAssist (prod first)
 // loadCodeAssist works better on prod for fresh/unprovisioned accounts
 export const LOAD_CODE_ASSIST_ENDPOINTS = [
-    ANTIGRAVITY_ENDPOINT_PROD,
-    ANTIGRAVITY_ENDPOINT_DAILY
+    CLOUDCODE_ENDPOINT_PROD,
+    CLOUDCODE_ENDPOINT_DAILY
 ];
 
 // Endpoint order for onboardUser (same as generateContent fallbacks)
-export const ONBOARD_USER_ENDPOINTS = ANTIGRAVITY_ENDPOINT_FALLBACKS;
+export const ONBOARD_USER_ENDPOINTS = CLOUDCODE_ENDPOINT_FALLBACKS;
 
 // Headers for loadCodeAssist API
-export const LOAD_CODE_ASSIST_HEADERS = ANTIGRAVITY_HEADERS;
+export const LOAD_CODE_ASSIST_HEADERS = CLOUDCODE_HEADERS;
+
+// Legacy alias
+export const ANTIGRAVITY_HEADERS = CLOUDCODE_HEADERS;
 
 // Default project ID if none can be discovered
 export const DEFAULT_PROJECT_ID = 'rising-fact-p41fc';
@@ -76,24 +83,26 @@ export const DEFAULT_PROJECT_ID = 'rising-fact-p41fc';
 // Configurable constants - values from config.json take precedence
 export const TOKEN_REFRESH_INTERVAL_MS = config?.tokenCacheTtlMs || (5 * 60 * 1000); // From config or 5 minutes
 export const REQUEST_BODY_LIMIT = config?.requestBodyLimit || '50mb';
-export const ANTIGRAVITY_AUTH_PORT = 9092;
+export const CLOUDCODE_AUTH_PORT = 9092;
+export const ANTIGRAVITY_AUTH_PORT = CLOUDCODE_AUTH_PORT; // Legacy alias
 export const DEFAULT_PORT = config?.port || 8080;
 
 // Multi-account configuration
 export const ACCOUNT_CONFIG_PATH = config?.accountConfigPath || join(
     homedir(),
-    '.config/antigravity-proxy/accounts.json'
+    '.config/commons-proxy/accounts.json'
 );
 
 // Usage history persistence path
 export const USAGE_HISTORY_PATH = join(
     homedir(),
-    '.config/antigravity-proxy/usage-history.json'
+    '.config/commons-proxy/usage-history.json'
 );
 
-// Antigravity app database path (for legacy single-account token extraction)
+// Cloud Code IDE database path (for legacy single-account token extraction)
 // Uses platform-specific path detection
-export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
+export const CLOUDCODE_DB_PATH = getCloudCodeDbPath();
+export const ANTIGRAVITY_DB_PATH = CLOUDCODE_DB_PATH; // Legacy alias
 
 export const DEFAULT_COOLDOWN_MS = config?.defaultCooldownMs || (10 * 1000); // From config or 10 seconds
 export const MAX_RETRIES = config?.maxRetries || 5; // From config or 5
@@ -128,7 +137,7 @@ export const BACKOFF_BY_ERROR_TYPE = {
 // Progressive backoff tiers for QUOTA_EXHAUSTED (60s, 5m, 30m, 2h)
 export const QUOTA_EXHAUSTED_BACKOFF_TIERS_MS = [60000, 300000, 1800000, 7200000];
 
-// Minimum backoff floor to prevent "Available in 0s" loops (matches opencode-antigravity-auth)
+// Minimum backoff floor to prevent "Available in 0s" loops (matches opencode-cloudcode-auth)
 export const MIN_BACKOFF_MS = 2000;
 
 // Thinking model constants
@@ -187,7 +196,7 @@ export function isThinkingModel(modelName) {
     return false;
 }
 
-// Google OAuth configuration (from opencode-antigravity-auth)
+// Google OAuth configuration (from opencode-cloudcode-auth)
 // OAuth callback port - configurable via environment variable for Windows compatibility (issue #176)
 // Windows may reserve ports in range 49152-65535 for Hyper-V/WSL2/Docker, causing EACCES errors
 const OAUTH_CALLBACK_PORT = parseInt(process.env.OAUTH_CALLBACK_PORT || '51121', 10);
@@ -211,10 +220,11 @@ export const OAUTH_CONFIG = {
 };
 export const OAUTH_REDIRECT_URI = `http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback`;
 
-// Minimal Antigravity system instruction (from CLIProxyAPI)
+// Minimal system instruction for Cloud Code API
 // Only includes the essential identity portion to reduce token usage and improve response quality
 // Reference: GitHub issue #76, CLIProxyAPI, gcli2api
-export const ANTIGRAVITY_SYSTEM_INSTRUCTION = `You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
+export const CLOUDCODE_SYSTEM_INSTRUCTION = `You are a powerful agentic AI coding assistant. You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
+export const ANTIGRAVITY_SYSTEM_INSTRUCTION = CLOUDCODE_SYSTEM_INSTRUCTION; // Legacy alias
 
 // Model fallback mapping - maps primary model to fallback when quota exhausted
 export const MODEL_FALLBACK_MAP = {
@@ -263,18 +273,27 @@ export const DEFAULT_PRESETS = [
 ];
 
 export default {
+    // New exports
+    CLOUDCODE_ENDPOINT_FALLBACKS,
+    CLOUDCODE_HEADERS,
+    CLOUDCODE_AUTH_PORT,
+    CLOUDCODE_DB_PATH,
+    CLOUDCODE_SYSTEM_INSTRUCTION,
+    // Legacy aliases for backward compatibility
     ANTIGRAVITY_ENDPOINT_FALLBACKS,
     ANTIGRAVITY_HEADERS,
+    ANTIGRAVITY_AUTH_PORT,
+    ANTIGRAVITY_DB_PATH,
+    ANTIGRAVITY_SYSTEM_INSTRUCTION,
+    // Common exports
     LOAD_CODE_ASSIST_ENDPOINTS,
     ONBOARD_USER_ENDPOINTS,
     LOAD_CODE_ASSIST_HEADERS,
     DEFAULT_PROJECT_ID,
     TOKEN_REFRESH_INTERVAL_MS,
     REQUEST_BODY_LIMIT,
-    ANTIGRAVITY_AUTH_PORT,
     DEFAULT_PORT,
     ACCOUNT_CONFIG_PATH,
-    ANTIGRAVITY_DB_PATH,
     DEFAULT_COOLDOWN_MS,
     MAX_RETRIES,
     MAX_EMPTY_RESPONSE_RETRIES,
@@ -302,6 +321,5 @@ export default {
     STRATEGY_LABELS,
     MODEL_FALLBACK_MAP,
     TEST_MODELS,
-    DEFAULT_PRESETS,
-    ANTIGRAVITY_SYSTEM_INSTRUCTION
+    DEFAULT_PRESETS
 };

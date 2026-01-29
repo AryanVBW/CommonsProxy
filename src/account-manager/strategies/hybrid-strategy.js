@@ -250,7 +250,7 @@ export class HybridStrategy extends BaseStrategy {
         const quotaComponent = quotaScore * this.#weights.quota;
 
         // LRU component (older = higher score)
-        // Use time since last use in seconds, capped at 1 hour (matches opencode-antigravity-auth)
+        // Use time since last use in seconds, capped at 1 hour (matches opencode-cloudcode-auth)
         const lastUsed = account.lastUsed || 0;
         const timeSinceLastUse = Math.min(Date.now() - lastUsed, 3600000); // Cap at 1 hour
         const lruSeconds = timeSinceLastUse / 1000;

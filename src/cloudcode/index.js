@@ -6,7 +6,7 @@
  *
  * Supports multi-account load balancing with automatic failover.
  *
- * Based on: https://github.com/NoeFabris/opencode-antigravity-auth
+ * Based on: https://github.com/NoeFabris/opencode-cloudcode-auth
  */
 
 // Re-export public API

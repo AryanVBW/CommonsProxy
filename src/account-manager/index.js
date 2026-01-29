@@ -190,7 +190,7 @@ export class AccountManager {
         if (this.#strategy) {
             this.#strategy.onSuccess(account, modelId);
         }
-        // Reset consecutive failures on success (matches opencode-antigravity-auth)
+        // Reset consecutive failures on success (matches opencode-cloudcode-auth)
         if (account?.email) {
             resetFailures(this.#accounts, account.email);
         }
@@ -308,7 +308,7 @@ export class AccountManager {
     }
 
     // ============================================================================
-    // Cooldown Methods (matches opencode-antigravity-auth)
+    // Cooldown Methods (matches opencode-cloudcode-auth)
     // ============================================================================
 
     /**

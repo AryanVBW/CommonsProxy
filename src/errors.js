@@ -6,9 +6,9 @@
  */
 
 /**
- * Base error class for Antigravity proxy errors
+ * Base error class for CommonsProxy errors
  */
-export class AntigravityError extends Error {
+export class CommonsProxyError extends Error {
     /**
      * @param {string} message - Error message
      * @param {string} code - Error code for programmatic handling
@@ -17,7 +17,7 @@ export class AntigravityError extends Error {
      */
     constructor(message, code, retryable = false, metadata = {}) {
         super(message);
-        this.name = 'AntigravityError';
+        this.name = 'CommonsProxyError';
         this.code = code;
         this.retryable = retryable;
         this.metadata = metadata;
@@ -40,7 +40,7 @@ export class AntigravityError extends Error {
 /**
  * Rate limit error (429 / RESOURCE_EXHAUSTED)
  */
-export class RateLimitError extends AntigravityError {
+export class RateLimitError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {number|null} resetMs - Time in ms until rate limit resets
@@ -57,7 +57,7 @@ export class RateLimitError extends AntigravityError {
 /**
  * Authentication error (invalid credentials, token expired, etc.)
  */
-export class AuthError extends AntigravityError {
+export class AuthError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {string} accountEmail - Email of the account with auth issues
@@ -74,7 +74,7 @@ export class AuthError extends AntigravityError {
 /**
  * No accounts available error
  */
-export class NoAccountsError extends AntigravityError {
+export class NoAccountsError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {boolean} allRateLimited - Whether all accounts are rate limited
@@ -89,7 +89,7 @@ export class NoAccountsError extends AntigravityError {
 /**
  * Max retries exceeded error
  */
-export class MaxRetriesError extends AntigravityError {
+export class MaxRetriesError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {number} attempts - Number of attempts made
@@ -104,7 +104,7 @@ export class MaxRetriesError extends AntigravityError {
 /**
  * API error from upstream service
  */
-export class ApiError extends AntigravityError {
+export class ApiError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {number} statusCode - HTTP status code
@@ -121,7 +121,7 @@ export class ApiError extends AntigravityError {
 /**
  * Native module error (version mismatch, rebuild required)
  */
-export class NativeModuleError extends AntigravityError {
+export class NativeModuleError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {boolean} rebuildSucceeded - Whether auto-rebuild succeeded
@@ -139,7 +139,7 @@ export class NativeModuleError extends AntigravityError {
  * Empty response error - thrown when API returns no content
  * Used to trigger retry logic in streaming handler
  */
-export class EmptyResponseError extends AntigravityError {
+export class EmptyResponseError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      */
@@ -154,7 +154,7 @@ export class EmptyResponseError extends AntigravityError {
  * Should retry on same account with shorter delay, not switch accounts immediately
  * Different from QUOTA_EXHAUSTED which indicates user's daily/hourly limit
  */
-export class CapacityExhaustedError extends AntigravityError {
+export class CapacityExhaustedError extends CommonsProxyError {
     /**
      * @param {string} message - Error message
      * @param {number|null} retryAfterMs - Suggested retry delay in ms
@@ -221,8 +221,12 @@ export function isCapacityExhaustedError(error) {
         msg.includes('service temporarily unavailable');
 }
 
+// Legacy alias for backward compatibility
+export const AntigravityError = CommonsProxyError;
+
 export default {
-    AntigravityError,
+    CommonsProxyError,
+    AntigravityError, // Legacy alias
     RateLimitError,
     AuthError,
     NoAccountsError,

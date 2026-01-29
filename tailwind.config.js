@@ -34,7 +34,7 @@ export default {
   ],
   daisyui: {
     themes: [{
-      antigravity: {
+      commons: {
         "primary": "#a855f7",    // neon-purple
         "secondary": "#22c55e",  // neon-green
         "accent": "#06b6d4",     // neon-cyan

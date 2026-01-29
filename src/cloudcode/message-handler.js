@@ -6,7 +6,7 @@
  */
 
 import {
-    ANTIGRAVITY_ENDPOINT_FALLBACKS,
+    CLOUDCODE_ENDPOINT_FALLBACKS,
     MAX_RETRIES,
     MAX_WAIT_BEFORE_ERROR_MS,
     DEFAULT_COOLDOWN_MS,
@@ -49,7 +49,7 @@ function getDedupKey(email, model) {
 }
 
 /**
- * Get rate limit backoff with deduplication and exponential backoff (matches opencode-antigravity-auth)
+ * Get rate limit backoff with deduplication and exponential backoff (matches opencode-cloudcode-auth)
  * @param {string} email - Account email
  * @param {string} model - Model ID
  * @param {number|null} serverRetryAfterMs - Server-provided retry time
@@ -135,7 +135,7 @@ setInterval(() => {
 }, 60000);
 
 /**
- * Calculate smart backoff based on error type (matches opencode-antigravity-auth)
+ * Calculate smart backoff based on error type (matches opencode-cloudcode-auth)
  * @param {string} errorText - Error message
  * @param {number|null} serverResetMs - Reset time from server
  * @param {number} consecutiveFailures - Number of consecutive failures
@@ -267,8 +267,8 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
             let capacityRetryCount = 0;
             let endpointIndex = 0;
 
-            while (endpointIndex < ANTIGRAVITY_ENDPOINT_FALLBACKS.length) {
-                const endpoint = ANTIGRAVITY_ENDPOINT_FALLBACKS[endpointIndex];
+            while (endpointIndex < CLOUDCODE_ENDPOINT_FALLBACKS.length) {
+                const endpoint = CLOUDCODE_ENDPOINT_FALLBACKS[endpointIndex];
                 try {
                     const url = isThinking
                         ? `${endpoint}/v1internal:streamGenerateContent?alt=sse`
@@ -311,7 +311,7 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                                     const tierIndex = Math.min(capacityRetryCount, CAPACITY_BACKOFF_TIERS_MS.length - 1);
                                     const waitMs = resetMs || CAPACITY_BACKOFF_TIERS_MS[tierIndex];
                                     capacityRetryCount++;
-                                    // Track failures for progressive backoff escalation (matches opencode-antigravity-auth)
+                                    // Track failures for progressive backoff escalation (matches opencode-cloudcode-auth)
                                     accountManager.incrementConsecutiveFailures(account.email);
                                     logger.info(`[CloudCode] Model capacity exhausted, retry ${capacityRetryCount}/${MAX_CAPACITY_RETRIES} after ${formatDuration(waitMs)}...`);
                                     await sleep(waitMs);
@@ -349,7 +349,7 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                             // Decision: wait and retry OR switch account
                             // First 429 gets a quick 1s retry (FIRST_RETRY_DELAY_MS)
                             if (backoff.attempt === 1 && smartBackoffMs <= DEFAULT_COOLDOWN_MS) {
-                                // Quick 1s retry on first 429 (matches opencode-antigravity-auth)
+                                // Quick 1s retry on first 429 (matches opencode-cloudcode-auth)
                                 const waitMs = backoff.delayMs;
                                 // markRateLimited already increments consecutiveFailures internally
                                 // This prevents concurrent retry storms and ensures progressive backoff escalation
@@ -397,7 +397,7 @@ export async function sendMessage(anthropicRequest, accountManager, fallbackEnab
                             }
 
                             lastError = new Error(`API error ${response.status}: ${errorText}`);
-                            // Try next endpoint for 403/404/5xx errors (matches opencode-antigravity-auth behavior)
+                            // Try next endpoint for 403/404/5xx errors (matches opencode-cloudcode-auth behavior)
                             if (response.status === 403 || response.status === 404) {
                                 logger.warn(`[CloudCode] ${response.status} at ${endpoint}...`);
                             } else if (response.status >= 500) {

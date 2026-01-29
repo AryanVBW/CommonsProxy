@@ -1,35 +1,35 @@
-# Antigravity Claude Proxy
+# CommonsProxy
 
-[![npm version](https://img.shields.io/npm/v/antigravity-claude-proxy.svg)](https://www.npmjs.com/package/antigravity-claude-proxy)
-[![npm downloads](https://img.shields.io/npm/dm/antigravity-claude-proxy.svg)](https://www.npmjs.com/package/antigravity-claude-proxy)
+[![npm version](https://img.shields.io/npm/v/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)
+[![npm downloads](https://img.shields.io/npm/dm/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <a href="https://buymeacoffee.com/badrinarayanans" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
-A proxy server that exposes an **Anthropic-compatible API** backed by **Antigravity's Cloud Code**, letting you use Claude and Gemini models with **Claude Code CLI**.
+A universal proxy server that exposes an **Anthropic-compatible API** backed by **Google Cloud Code** and other providers, letting you use Claude, Gemini, and other models with **Claude Code CLI**.
 
-![Antigravity Claude Proxy Banner](images/banner.png)
+![CommonsProxy Banner](images/banner.png)
 
 ## How It Works
 
 ```
 ┌──────────────────┐     ┌─────────────────────┐     ┌────────────────────────────┐
-│   Claude Code    │────▶│  This Proxy Server  │────▶│  Antigravity Cloud Code    │
-│   (Anthropic     │     │  (Anthropic → Google│     │  (daily-cloudcode-pa.      │
-│    API format)   │     │   Generative AI)    │     │   sandbox.googleapis.com)  │
+│   Claude Code    │────▶│    CommonsProxy     │────▶│  Google Cloud Code API     │
+│   (Anthropic     │     │  (Anthropic → Google│     │  (cloudcode-pa.            │
+│    API format)   │     │   Generative AI)    │     │   googleapis.com)          │
 └──────────────────┘     └─────────────────────┘     └────────────────────────────┘
 ```
 
 1. Receives requests in **Anthropic Messages API format**
-2. Uses OAuth tokens from added Google accounts (or Antigravity's local database)
+2. Uses OAuth tokens from added Google accounts (or IDE's local database)
 3. Transforms to **Google Generative AI format** with Cloud Code wrapping
-4. Sends to Antigravity's Cloud Code API
+4. Sends to Google Cloud Code API
 5. Converts responses back to **Anthropic format** with full thinking/streaming support
 
 ## Prerequisites
 
 - **Node.js** 18 or later
-- **Antigravity** installed (for single-account mode) OR Google account(s) for multi-account mode
+- **Windsurf/Cursor IDE** installed (for single-account mode) OR Google account(s) for multi-account mode
 
 ---
 
@@ -39,18 +39,18 @@ A proxy server that exposes an **Anthropic-compatible API** backed by **Antigrav
 
 ```bash
 # Run directly with npx (no install needed)
-npx antigravity-claude-proxy@latest start
+npx commons-proxy@latest start
 
 # Or install globally
-npm install -g antigravity-claude-proxy@latest
-antigravity-claude-proxy start
+npm install -g commons-proxy@latest
+commons-proxy start
 ```
 
 ### Option 2: Clone Repository
 
 ```bash
-git clone https://github.com/badri-s2001/antigravity-claude-proxy.git
-cd antigravity-claude-proxy
+git clone https://github.com/AryanVBW/CommonsProxy.git
+cd CommonsProxy
 npm install
 npm start
 ```
@@ -63,10 +63,10 @@ npm start
 
 ```bash
 # If installed via npm
-antigravity-claude-proxy start
+commons-proxy start
 
 # If using npx
-npx antigravity-claude-proxy@latest start
+npx commons-proxy@latest start
 
 # If cloned locally
 npm start
@@ -92,22 +92,22 @@ If you prefer the terminal or are on a remote server:
 
 ```bash
 # Desktop (opens browser)
-antigravity-claude-proxy accounts add
+commons-proxy accounts add
 
 # Headless (Docker/SSH)
-antigravity-claude-proxy accounts add --no-browser
+commons-proxy accounts add --no-browser
 ```
 
-> For full CLI account management options, run `antigravity-claude-proxy accounts --help`.
+> For full CLI account management options, run `commons-proxy accounts --help`.
 
-#### **Method C: Automatic (Antigravity Users)**
+#### **Method C: Automatic (IDE Users)**
 
-If you have the **Antigravity** app installed and logged in, the proxy will automatically detect your local session. No additional setup is required.
+If you have **Windsurf** or **Cursor** IDE installed and logged in with Google, the proxy will automatically detect your local session. No additional setup is required.
 
 To use a custom port:
 
 ```bash
-PORT=3001 antigravity-claude-proxy start
+PORT=3001 commons-proxy start
 ```
 
 ### 3. Verify It's Working
@@ -213,7 +213,7 @@ Restart your terminal for changes to take effect.
 
 ```bash
 # Make sure the proxy is running first
-antigravity-claude-proxy start
+commons-proxy start
 
 # In another terminal, run Claude Code
 claude
@@ -223,28 +223,28 @@ claude
 
 ### Multiple Claude Code Instances (Optional)
 
-To run both the official Claude Code and Antigravity version simultaneously, add this alias:
+To run both the official Claude Code and CommonsProxy version simultaneously, add this alias:
 
 **macOS / Linux:**
 
 ```bash
 # Add to ~/.zshrc or ~/.bashrc
-alias claude-antigravity='CLAUDE_CONFIG_DIR=~/.claude-account-antigravity ANTHROPIC_BASE_URL="http://localhost:8080" ANTHROPIC_AUTH_TOKEN="test" command claude'
+alias claude-commons='CLAUDE_CONFIG_DIR=~/.claude-account-commons ANTHROPIC_BASE_URL="http://localhost:8080" ANTHROPIC_AUTH_TOKEN="test" command claude'
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
 # Add to $PROFILE
-function claude-antigravity {
-    $env:CLAUDE_CONFIG_DIR = "$env:USERPROFILE\.claude-account-antigravity"
+function claude-commons {
+    $env:CLAUDE_CONFIG_DIR = "$env:USERPROFILE\.claude-account-commons"
     $env:ANTHROPIC_BASE_URL = "http://localhost:8080"
     $env:ANTHROPIC_AUTH_TOKEN = "test"
     claude
 }
 ```
 
-Then run `claude` for official API or `claude-antigravity` for this proxy.
+Then run `claude` for official API or `claude-commons` for this proxy.
 
 ---
 
@@ -287,9 +287,9 @@ Choose a strategy based on your needs:
 **Configure via CLI:**
 
 ```bash
-antigravity-claude-proxy start --strategy=hybrid    # Default: smart distribution
-antigravity-claude-proxy start --strategy=sticky    # Cache-optimized
-antigravity-claude-proxy start --strategy=round-robin  # Load-balanced
+commons-proxy start --strategy=hybrid    # Default: smart distribution
+commons-proxy start --strategy=sticky    # Cache-optimized
+commons-proxy start --strategy=round-robin  # Load-balanced
 ```
 
 **Or via WebUI:** Settings → Server → Account Selection Strategy
@@ -320,13 +320,13 @@ If you prefer using the terminal for management:
 
 ```bash
 # List all accounts
-antigravity-claude-proxy accounts list
+commons-proxy accounts list
 
 # Verify account health
-antigravity-claude-proxy accounts verify
+commons-proxy accounts verify
 
 # Interactive CLI menu
-antigravity-claude-proxy accounts
+commons-proxy accounts
 ```
 
 ---
@@ -335,7 +335,7 @@ antigravity-claude-proxy accounts
 
 The proxy includes a built-in, modern web interface for real-time monitoring and configuration. Access the console at: `http://localhost:8080` (default port).
 
-![Antigravity Console](images/webui-dashboard.png)
+![CommonsProxy Console](images/webui-dashboard.png)
 
 ### Key Features
 
@@ -375,11 +375,11 @@ Refer to `config.example.json` for a complete list of fields and documentation.
 
 ## macOS Menu Bar App
 
-For macOS users who prefer a native experience, there's a companion menu bar app that provides quick access to server controls without touching the terminal. Get it from: [antigravity-claude-proxy-bar](https://github.com/IrvanFza/antigravity-claude-proxy-bar)
+For macOS users who prefer a native experience, there's a companion menu bar app that provides quick access to server controls without touching the terminal. Get it from: [commons-proxy-bar](https://github.com/IrvanFza/commons-proxy-bar)
 
 > **Note:** This is a GUI wrapper only. You still need to install and setup the proxy server first using one of the [installation methods](#installation) above.
 
-![AntiGravity Claude Proxy Bar](https://github.com/IrvanFza/antigravity-claude-proxy-bar/blob/main/images/application.png?raw=true)
+![AntiGravity Claude Proxy Bar](https://github.com/IrvanFza/commons-proxy-bar/blob/main/images/application.png?raw=true)
 
 ### Key Features
 
@@ -450,11 +450,11 @@ Set a custom port outside the reserved range:
 ```bash
 # Windows PowerShell
 $env:OAUTH_CALLBACK_PORT = "3456"
-antigravity-claude-proxy start
+commons-proxy start
 
 # Windows CMD
 set OAUTH_CALLBACK_PORT=3456
-antigravity-claude-proxy start
+commons-proxy start
 
 # Or add to your .env file
 OAUTH_CALLBACK_PORT=3456
@@ -491,14 +491,14 @@ netsh int ipv4 add excludedportrange protocol=tcp startport=51121 numberofports=
 
 ---
 
-### "Could not extract token from Antigravity"
+### "Could not extract token from Cloud Code IDE"
 
-If using single-account mode with Antigravity:
+If using single-account mode with Windsurf/Cursor:
 
-1. Make sure Antigravity app is installed and running
-2. Ensure you're logged in to Antigravity
+1. Make sure the IDE is installed and running
+2. Ensure you're logged in with your Google account
 
-Or add accounts via OAuth instead: `antigravity-claude-proxy accounts add`
+Or add accounts via OAuth instead: `commons-proxy accounts add`
 
 ### 401 Authentication Errors
 
@@ -511,7 +511,7 @@ curl -X POST http://localhost:8080/refresh-token
 Or re-authenticate the account:
 
 ```bash
-antigravity-claude-proxy accounts
+commons-proxy accounts
 ```
 
 ### Rate Limiting (429)
@@ -523,7 +523,7 @@ With multiple accounts, the proxy automatically switches to the next available a
 Re-authenticate the account:
 
 ```bash
-antigravity-claude-proxy accounts
+commons-proxy accounts
 # Choose "Re-authenticate" for the invalid account
 ```
 
@@ -563,7 +563,7 @@ By using this software, you acknowledge and accept the following:
 
 - **Not affiliated with Google or Anthropic.** This is an independent open-source project and is not endorsed by, sponsored by, or affiliated with Google LLC or Anthropic PBC.
 
-- "Antigravity", "Gemini", "Google Cloud", and "Google" are trademarks of Google LLC.
+- "Gemini", "Google Cloud", and "Google" are trademarks of Google LLC.
 
 - "Claude" and "Anthropic" are trademarks of Anthropic PBC.
 
@@ -580,8 +580,8 @@ This project uses a local Tailwind CSS build system. CSS is pre-compiled and inc
 #### Quick Start
 
 ```bash
-git clone https://github.com/badri-s2001/antigravity-claude-proxy.git
-cd antigravity-claude-proxy
+git clone https://github.com/AryanVBW/CommonsProxy.git
+cd CommonsProxy
 npm install  # Automatically builds CSS via prepare hook
 npm start    # Start server (no rebuild needed)
 ```
@@ -632,7 +632,7 @@ See [CLAUDE.md](./CLAUDE.md) for detailed architecture documentation, including:
 
 This project is based on insights and code from:
 
-- [opencode-antigravity-auth](https://github.com/NoeFabris/opencode-antigravity-auth) - Antigravity OAuth plugin for OpenCode
+- [opencode-antigravity-auth](https://github.com/NoeFabris/opencode-antigravity-auth) - CommonsProxy OAuth plugin for OpenCode
 - [claude-code-proxy](https://github.com/1rgs/claude-code-proxy) - Anthropic API proxy using LiteLLM
 
 ---
@@ -645,4 +645,4 @@ MIT
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=badrisnarayanan/antigravity-claude-proxy&type=date&legend=top-left&cache-control=no-cache)](https://www.star-history.com/#badrisnarayanan/antigravity-claude-proxy&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=badrisnarayanan/commons-proxy&type=date&legend=top-left&cache-control=no-cache)](https://www.star-history.com/#badrisnarayanan/commons-proxy&type=date&legend=top-left)

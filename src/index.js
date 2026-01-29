@@ -1,6 +1,7 @@
 /**
- * Antigravity Claude Proxy
+ * CommonsProxy
  * Entry point - starts the proxy server
+ * Universal proxy for Claude Code CLI with multi-provider support
  */
 
 import app, { accountManager } from './server.js';
@@ -49,7 +50,7 @@ const PORT = process.env.PORT || DEFAULT_PORT;
 
 // Home directory for account storage
 const HOME_DIR = os.homedir();
-const CONFIG_DIR = path.join(HOME_DIR, '.antigravity-claude-proxy');
+const CONFIG_DIR = path.join(HOME_DIR, '.config/commons-proxy');
 
 const server = app.listen(PORT, () => {
     // Clear console for a clean start
@@ -90,7 +91,7 @@ const server = app.listen(PORT, () => {
 
     logger.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║           Antigravity Claude Proxy Server                    ║
+║              CommonsProxy Server                             ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
 ${border}  ${align(`Server and WebUI running at: http://localhost:${PORT}`)}${border}
@@ -116,8 +117,8 @@ ${border}    ${align4(`export ANTHROPIC_API_KEY=${config.apiKey || 'dummy'}`)}${
 ║    npm run accounts                                          ║
 ║                                                              ║
 ║  Prerequisites (if no accounts configured):                  ║
-║    - Antigravity must be running                             ║
-║    - Have a chat panel open in Antigravity                   ║
+║    - Windsurf/Cursor IDE must be running                     ║
+║    - Have a chat panel open in the IDE                       ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
   `);

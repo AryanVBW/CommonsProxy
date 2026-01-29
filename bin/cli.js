@@ -17,12 +17,12 @@ const command = args[0];
 
 function showHelp() {
   console.log(`
-antigravity-claude-proxy v${packageJson.version}
+CommonsProxy v${packageJson.version}
 
-Proxy server for using Antigravity's Claude models with Claude Code CLI.
+Universal proxy server for Claude Code CLI - supports multiple AI providers.
 
 USAGE:
-  antigravity-claude-proxy <command> [options]
+  commons-proxy <command> [options]
 
 COMMANDS:
   start                 Start the proxy server (default port: 8080)
@@ -41,10 +41,10 @@ ENVIRONMENT:
   PORT                  Server port (default: 8080)
 
 EXAMPLES:
-  antigravity-claude-proxy start
-  PORT=3000 antigravity-claude-proxy start
-  antigravity-claude-proxy accounts add
-  antigravity-claude-proxy accounts list
+  commons-proxy start
+  PORT=3000 commons-proxy start
+  commons-proxy accounts add
+  commons-proxy accounts list
 
 CONFIGURATION:
   Claude Code CLI (~/.claude/settings.json):
@@ -98,7 +98,7 @@ async function main() {
 
     default:
       console.error(`Unknown command: ${command}`);
-      console.error('Run "antigravity-proxy --help" for usage information.');
+      console.error('Run "commons-proxy --help" for usage information.');
       process.exit(1);
   }
 }

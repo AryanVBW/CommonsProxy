@@ -49,7 +49,7 @@ window.translations.tr = {
     operations: "İŞLEMLER",
     delete: "Sil",
     confirmDelete: "Bu hesabı kaldırmak istediğinizden emin misiniz?",
-    cannotDeleteDatabase: "Silinemez: Bu hesap Antigravity veritabanından (salt okunur)",
+    cannotDeleteDatabase: "Silinemez: Bu hesap CommonsProxy veritabanından (salt okunur)",
     connectGoogle: "Google Hesabı Bağla",
     reauthenticated: "yeniden doğrulandı",
     added: "eklendi",
@@ -118,9 +118,9 @@ window.translations.tr = {
     saveConfig: "Claude CLI ayarlarına kaydet",
     envVar: "Ortam Değişkeni",
     // New Keys
-    systemName: "ANTIGRAVITY",
+    systemName: "COMMONSPROXY",
     systemDesc: "CLAUDE PROXY SİSTEMİ",
-    connectGoogleDesc: "API kota limitinizi artırmak için bir Google Workspace hesabı bağlayın. Bu hesap, Claude isteklerini Antigravity üzerinden vekil sunucu olarak kullanmak için kullanılacaktır.",
+    connectGoogleDesc: "API kota limitinizi artırmak için bir Google Workspace hesabı bağlayın. Bu hesap, Claude isteklerini CommonsProxy üzerinden vekil sunucu olarak kullanmak için kullanılacaktır.",
     useCliCommand: "CLI Komutunu Kullan",
     close: "Kapat",
     requestVolume: "İstek Hacmi",
@@ -298,7 +298,7 @@ window.translations.tr = {
     importFailed: "İçe aktarma başarısız",
 
     // TODO: Missing translations - Hardcoded strings from HTML
-    // pageTitle: "Antigravity Console",
+    // pageTitle: "CommonsProxy Console",
     // live: "Live",
     // tier: "Tier",
     // quota: "Quota",

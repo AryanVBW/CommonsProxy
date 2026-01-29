@@ -1,6 +1,6 @@
 /**
  * SQLite Database Access Module
- * Provides cross-platform database operations for Antigravity state.
+ * Provides cross-platform database operations for Cloud Code IDE state.
  *
  * Uses better-sqlite3 for:
  * - Windows compatibility (no CLI dependency)
@@ -12,7 +12,7 @@
  */
 
 import { createRequire } from 'module';
-import { ANTIGRAVITY_DB_PATH } from '../constants.js';
+import { CLOUDCODE_DB_PATH } from '../constants.js';
 import { isModuleVersionError, attemptAutoRebuild, clearRequireCache } from '../utils/native-module-helper.js';
 import { logger } from '../utils/logger.js';
 import { NativeModuleError } from '../errors.js';
@@ -82,12 +82,12 @@ function loadDatabaseModule() {
 }
 
 /**
- * Query Antigravity database for authentication status
+ * Query Cloud Code IDE database for authentication status
  * @param {string} [dbPath] - Optional custom database path
  * @returns {Object} Parsed auth data with apiKey, email, name, etc.
  * @throws {Error} If database doesn't exist, query fails, or no auth status found
  */
-export function getAuthStatus(dbPath = ANTIGRAVITY_DB_PATH) {
+export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
     const Db = loadDatabaseModule();
     let db;
     try {
@@ -99,7 +99,7 @@ export function getAuthStatus(dbPath = ANTIGRAVITY_DB_PATH) {
 
         // Prepare and execute query
         const stmt = db.prepare(
-            "SELECT value FROM ItemTable WHERE key = 'antigravityAuthStatus'"
+            "SELECT value FROM ItemTable WHERE key = 'cloudcodeAuthStatus'"
         );
         const row = stmt.get();
 
@@ -120,7 +120,7 @@ export function getAuthStatus(dbPath = ANTIGRAVITY_DB_PATH) {
         if (error.code === 'SQLITE_CANTOPEN') {
             throw new Error(
                 `Database not found at ${dbPath}. ` +
-                'Make sure Antigravity is installed and you are logged in.'
+                'Make sure the Cloud Code IDE is installed and you are logged in.'
             );
         }
         // Re-throw with context if not already our error
@@ -131,7 +131,7 @@ export function getAuthStatus(dbPath = ANTIGRAVITY_DB_PATH) {
         if (error instanceof NativeModuleError) {
             throw error;
         }
-        throw new Error(`Failed to read Antigravity database: ${error.message}`);
+        throw new Error(`Failed to read Cloud Code IDE database: ${error.message}`);
     } finally {
         // Always close database connection
         if (db) {
@@ -145,7 +145,7 @@ export function getAuthStatus(dbPath = ANTIGRAVITY_DB_PATH) {
  * @param {string} [dbPath] - Optional custom database path
  * @returns {boolean} True if database exists and can be opened
  */
-export function isDatabaseAccessible(dbPath = ANTIGRAVITY_DB_PATH) {
+export function isDatabaseAccessible(dbPath = CLOUDCODE_DB_PATH) {
     let db;
     try {
         const Db = loadDatabaseModule();

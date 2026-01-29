@@ -133,7 +133,7 @@ export function markRateLimited(accounts, email, resetMs = null, modelId) {
         actualResetMs: actualResetMs             // Original duration from API
     };
 
-    // Track consecutive failures for progressive backoff (matches opencode-antigravity-auth)
+    // Track consecutive failures for progressive backoff (matches opencode-cloudcode-auth)
     account.consecutiveFailures = (account.consecutiveFailures || 0) + 1;
 
     // Log appropriately based on duration
@@ -241,7 +241,7 @@ export function getRateLimitInfo(accounts, email, modelId) {
 
 /**
  * Get the consecutive failure count for an account
- * Used for progressive backoff calculation (matches opencode-antigravity-auth)
+ * Used for progressive backoff calculation (matches opencode-cloudcode-auth)
  *
  * @param {Array} accounts - Array of account objects
  * @param {string} email - Email of the account
@@ -254,7 +254,7 @@ export function getConsecutiveFailures(accounts, email) {
 
 /**
  * Reset the consecutive failure count for an account
- * Called on successful request (matches opencode-antigravity-auth)
+ * Called on successful request (matches opencode-cloudcode-auth)
  *
  * @param {Array} accounts - Array of account objects
  * @param {string} email - Email of the account
@@ -270,7 +270,7 @@ export function resetConsecutiveFailures(accounts, email) {
 /**
  * Increment the consecutive failure count for an account WITHOUT marking as rate limited
  * Used for quick retries where we want to track failures but not skip the account
- * (matches opencode-antigravity-auth behavior of always incrementing on 429)
+ * (matches opencode-cloudcode-auth behavior of always incrementing on 429)
  *
  * @param {Array} accounts - Array of account objects
  * @param {string} email - Email of the account
@@ -284,7 +284,7 @@ export function incrementConsecutiveFailures(accounts, email) {
 }
 
 // ============================================================================
-// Cooldown Mechanism (matches opencode-antigravity-auth)
+// Cooldown Mechanism (matches opencode-cloudcode-auth)
 // Separate from rate limits - used for temporary backoff after failures
 // ============================================================================
 

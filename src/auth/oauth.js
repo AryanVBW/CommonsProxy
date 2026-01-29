@@ -1,7 +1,7 @@
 /**
  * Google OAuth with PKCE for Antigravity
  *
- * Implements the same OAuth flow as opencode-antigravity-auth
+ * Implements the same OAuth flow as opencode-cloudcode-auth
  * to obtain refresh tokens for multiple Google accounts.
  * Uses a local callback server to automatically capture the auth code.
  */
@@ -18,7 +18,7 @@ import { logger } from '../utils/logger.js';
 import { onboardUser, getDefaultTierId } from '../account-manager/onboarding.js';
 
 /**
- * Parse refresh token parts (aligned with opencode-antigravity-auth)
+ * Parse refresh token parts (aligned with opencode-cloudcode-auth)
  * Format: refreshToken|projectId|managedProjectId
  *
  * @param {string} refresh - Composite refresh token string

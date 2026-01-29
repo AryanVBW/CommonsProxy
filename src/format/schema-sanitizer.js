@@ -2,7 +2,7 @@
  * Schema Sanitizer
  * Cleans and transforms JSON schemas for Gemini/Antigravity API compatibility
  *
- * Uses a multi-phase pipeline matching opencode-antigravity-auth approach:
+ * Uses a multi-phase pipeline matching opencode-cloudcode-auth approach:
  * - Phase 1: Convert $refs to description hints
  * - Phase 2a: Merge allOf schemas
  * - Phase 2b: Flatten anyOf/oneOf (select best option)
@@ -587,7 +587,7 @@ function toGoogleType(type) {
 
 /**
  * Cleans JSON schema for Gemini API compatibility.
- * Uses a multi-phase pipeline matching opencode-antigravity-auth approach.
+ * Uses a multi-phase pipeline matching opencode-cloudcode-auth approach.
  *
  * @param {Object} schema - The JSON schema to clean
  * @returns {Object} Cleaned schema safe for Gemini API

@@ -65,7 +65,7 @@ window.translations.id = {
     operations: "AKSI",
     delete: "Hapus",
     confirmDelete: "Yakin ingin menghapus akun ini?",
-    cannotDeleteDatabase: "Tidak bisa dihapus: Akun ini dari database Antigravity (read-only)",
+    cannotDeleteDatabase: "Tidak bisa dihapus: Akun ini dari database CommonsProxy (read-only)",
     connectGoogle: "Hubungkan Akun Google",
     reauthenticated: "diautentikasi ulang",
     added: "ditambahkan",
@@ -160,9 +160,9 @@ window.translations.id = {
     envVar: "Env",
 
     // System
-    systemName: "ANTIGRAVITY",
+    systemName: "COMMONSPROXY",
     systemDesc: "CLAUDE PROXY SYSTEM",
-    connectGoogleDesc: "Hubungkan akun Google Workspace untuk meningkatkan kuota API. Akun akan digunakan untuk meneruskan request Claude via Antigravity.",
+    connectGoogleDesc: "Hubungkan akun Google Workspace untuk meningkatkan kuota API. Akun akan digunakan untuk meneruskan request Claude via CommonsProxy.",
     useCliCommand: "Gunakan Perintah CLI",
     close: "Tutup",
     requestVolume: "Volume Request",
@@ -355,7 +355,7 @@ window.translations.id = {
     importFailed: "Gagal mengimpor",
 
     // Completed TODOs
-    pageTitle: "Antigravity Console",
+    pageTitle: "CommonsProxy Console",
     live: "Live",
     tier: "Tier",
     quota: "Kuota",

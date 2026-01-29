@@ -23,7 +23,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         loadSettings() {
-            const saved = localStorage.getItem('antigravity_settings');
+            const saved = localStorage.getItem('commons_settings');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 Object.keys(parsed).forEach(k => {
@@ -41,7 +41,7 @@ document.addEventListener('alpine:init', () => {
                 showHiddenModels: this.showHiddenModels,
                 compact: this.compact
             };
-            localStorage.setItem('antigravity_settings', JSON.stringify(toSave));
+            localStorage.setItem('commons_settings', JSON.stringify(toSave));
 
             if (!silent) {
                 const store = Alpine.store('global');

@@ -22,7 +22,7 @@ What actually happens.
 
 **Environment**
 - Claude Code version:
-- antigravity-claude-proxy version:
+- commons-proxy version:
 - Operating System:
 - Node.js version:
 
@@ -42,10 +42,10 @@ Please provide ONE of the following:
 
 **Checklist**
 Please confirm:
-- [ ] I've updated antigravity-claude-proxy to the latest version
+- [ ] I've updated commons-proxy to the latest version
 - [ ] The bug exists in the latest version
 - [ ] I'm using this proxy for personal development only
-- [ ] I have an active Google Cloud project with Antigravity enabled
+- [ ] I have an active Google Cloud project with Cloud Code enabled
 - [ ] This issue is not related to attempting commercial use or TOS violations
 - [ ] I've reviewed the README troubleshooting section
 

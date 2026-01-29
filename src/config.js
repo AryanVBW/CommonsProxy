@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
     defaultCooldownMs: 10000,  // 10 seconds
     maxWaitBeforeErrorMs: 120000, // 2 minutes
     maxAccounts: 10, // Maximum number of accounts allowed
-    // Rate limit handling (matches opencode-antigravity-auth)
+    // Rate limit handling (matches opencode-cloudcode-auth)
     rateLimitDedupWindowMs: 2000,  // 2 seconds - prevents concurrent retry storms
     maxConsecutiveFailures: 3,     // Before applying extended cooldown
     extendedCooldownMs: 60000,     // 1 minute extended cooldown
@@ -50,7 +50,7 @@ const DEFAULT_CONFIG = {
 
 // Config locations
 const HOME_DIR = os.homedir();
-const CONFIG_DIR = path.join(HOME_DIR, '.config', 'antigravity-proxy');
+const CONFIG_DIR = path.join(HOME_DIR, '.config', 'commons-proxy');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 // Ensure config dir exists

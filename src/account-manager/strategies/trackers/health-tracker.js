@@ -6,7 +6,7 @@
  * Passive recovery over time helps accounts recover from temporary issues.
  */
 
-// Default configuration (matches opencode-antigravity-auth)
+// Default configuration (matches opencode-cloudcode-auth)
 const DEFAULT_CONFIG = {
     initial: 70,           // Starting score for new accounts
     successReward: 1,      // Points on successful request

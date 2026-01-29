@@ -6,7 +6,7 @@
  * Requests consume tokens; accounts without tokens are deprioritized.
  */
 
-// Default configuration (matches opencode-antigravity-auth)
+// Default configuration (matches opencode-cloudcode-auth)
 const DEFAULT_CONFIG = {
     maxTokens: 50,        // Maximum token capacity
     tokensPerMinute: 6,   // Regeneration rate
