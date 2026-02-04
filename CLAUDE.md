@@ -4,9 +4,92 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CommonsProxy is a Node.js proxy server that exposes an Anthropic-compatible API backed by Google Cloud Code service. It enables using Claude models (`claude-sonnet-4-5-thinking`, `claude-opus-4-5-thinking`) and Gemini models (`gemini-3-flash`, `gemini-3-pro-low`, `gemini-3-pro-high`) with Claude Code CLI.
+CommonsProxy is a Node.js proxy server that exposes an Anthropic-compatible API backed by **multiple AI providers**. It enables using various AI models (Claude, Gemini, GPT, etc.) with Claude Code CLI and other Anthropic-compatible clients.
 
-The proxy translates requests from Anthropic Messages API format → Google Generative AI format → Google Cloud Code API, then converts responses back to Anthropic format with full thinking/streaming support.
+**Supported Providers (v2.0.0+)**:
+- 🔵 **Google Cloud Code** - Claude & Gemini models via OAuth 2.0
+- 🟠 **Anthropic** - Direct Claude API access via API key
+- 🟢 **OpenAI** - GPT models via API key (supports Azure OpenAI)
+- 🟣 **GitHub Models** - Access to GitHub's model marketplace via Personal Access Token
+
+The proxy translates requests from Anthropic Messages API format to provider-specific formats, then converts responses back to Anthropic format with full thinking/streaming support.
+
+## Multi-Provider Architecture (v2.0.0+)
+
+### Provider Abstraction Layer
+
+CommonsProxy uses a **provider abstraction layer** that allows seamless integration of multiple AI services:
+
+```
+Claude Code CLI → Express Server → Provider Layer → Multiple AI APIs
+                                         ↓
+                    ┌────────────────────┼────────────────────┐
+                    │                    │                    │
+              Google Cloud        Anthropic API         OpenAI API      GitHub Models
+              (OAuth 2.0)         (API Key)            (API Key)        (PAT)
+```
+
+### Provider System Components
+
+**1. Base Provider Class** (`src/providers/base-provider.js`)
+- Abstract class defining provider interface
+- Methods: `authenticate()`, `refreshAuth()`, `validateCredentials()`, `getApiEndpoint()`
+- All providers extend this class
+
+**2. Provider Implementations**
+- **GoogleProvider** (`google-provider.js`) - OAuth 2.0 with PKCE flow
+- **AnthropicProvider** (`anthropic-provider.js`) - API key authentication
+- **OpenAIProvider** (`openai-provider.js`) - API key + custom endpoint support (Azure)
+- **GitHubProvider** (`github-provider.js`) - Personal Access Token
+
+**3. Provider Registry** (`src/providers/index.js`)
+- Factory pattern for provider instantiation
+- Exports: `PROVIDER_NAMES`, `PROVIDER_CONFIG`, `createProvider()`
+
+### Account Schema Extensions
+
+Each account in `accounts.json` now includes:
+
+```json
+{
+  "email": "user@example.com",
+  "provider": "google|anthropic|openai|github",
+  "source": "oauth|manual",
+  "enabled": true,
+  
+  // Provider-specific credentials
+  "refreshToken": "...",      // OAuth providers (Google)
+  "apiKey": "...",            // API key providers (Anthropic, OpenAI, GitHub)
+  "customApiEndpoint": "...", // Optional (OpenAI Azure)
+  
+  // Standard fields
+  "subscription": { "tier": "free|pro|ultra", "projectId": "..." },
+  "quota": { "models": {}, "lastChecked": 1234567890 },
+  "modelRateLimits": {},
+  "lastUsed": 1234567890,
+  "isInvalid": false
+}
+```
+
+### Provider Color Scheme
+
+UI components use consistent color coding:
+
+| Provider | Hex Color | Tailwind Class | Badge Color |
+|----------|-----------|----------------|-------------|
+| Google Cloud Code | `#4285f4` | `bg-blue-500` | Blue |
+| Anthropic | `#d97706` | `bg-orange-600` | Orange |
+| OpenAI | `#10b981` | `bg-green-500` | Green |
+| GitHub Models | `#6366f1` | `bg-indigo-500` | Indigo |
+
+### Backward Compatibility
+
+**Automatic Migration**: Existing accounts without a `provider` field are automatically migrated:
+- `source: 'oauth'` → `provider: 'google'`
+- `source: 'database'` → `provider: 'google'`
+- Migration handled in `src/account-manager/storage.js` via `detectProviderFromSource()`
+
+**No Breaking Changes**: All existing functionality remains unchanged for Google Cloud Code accounts.
 
 ## Commands
 

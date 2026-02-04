@@ -1,7 +1,7 @@
 {
   "name": "commons-proxy",
-  "version": "1.2.6",
-  "description": "Universal proxy server for Claude Code CLI - supports multiple AI providers including Google Cloud Code, GitHub Copilot, and more",
+  "version": "2.0.0",
+  "description": "Universal AI proxy server with multi-provider support (Google Cloud Code, Anthropic, OpenAI, GitHub Models) - Anthropic-compatible API for Claude Code CLI",
   "main": "src/index.js",
   "type": "module",
   "bin": {
@@ -16,6 +16,7 @@
     "build:css": "tailwindcss -i ./public/css/src/input.css -o ./public/css/style.css --minify",
     "watch:css": "tailwindcss -i ./public/css/src/input.css -o ./public/css/style.css --watch",
     "prepare": "npm run build:css",
+    "prepare-release": "npm run build:css && npm test",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "dev:full": "concurrently \"npm run watch:css\" \"npm run dev\"",
@@ -41,13 +42,26 @@
   "keywords": [
     "claude",
     "anthropic",
+    "openai",
+    "github-models",
     "commons",
+    "ai-proxy",
+    "ai-gateway",
     "multi-provider",
+    "llm-proxy",
+    "llm",
     "copilot",
     "proxy",
-    "vertex-ai"
+    "vertex-ai",
+    "gemini",
+    "gpt",
+    "load-balancer",
+    "api-gateway"
   ],
-  "author": "Badri Narayanan",
+  "author": "Badri Narayanan S <badrinarayanans@gmail.com>",
+  "contributors": [
+    "AryanVBW"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -59,6 +73,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "async-mutex": "^0.5.0",

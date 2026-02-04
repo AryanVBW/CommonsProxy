@@ -1,0 +1,135 @@
+name: Docker Build & Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag (e.g., v2.0.0)'
+        required: true
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          VERSION=${TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f1-2)
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          
+          echo "Building Docker image for version: $VERSION"
+          echo "Tags: $VERSION, $MINOR, $MAJOR, latest"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/commonsproxy
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
+
+      - name: Verify Docker image
+        run: |
+          echo "Waiting for image to be available..."
+          sleep 10
+          
+          docker pull ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}
+          
+          echo "Running smoke test..."
+          docker run -d --name test-container -p 8080:8080 \
+            ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}
+          
+          sleep 10
+          
+          if curl -f http://localhost:8080/health; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed"
+            docker logs test-container
+            exit 1
+          fi
+          
+          docker rm -f test-container
+          echo "✅ Docker image verification successful"
+
+      - name: Add Docker instructions to release notes
+        if: github.event_name == 'release'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.getRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id
+            });
+            
+            const dockerInstructions = `\n\n---\n\n## 🐳 Docker\n\n### Pull Image\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}\n\`\`\`\n\n### Quick Start\n\`\`\`bash\ndocker run -d -p 8080:8080 \\\n  -v ~/.config/commons-proxy:/app/data/.config/commons-proxy \\\n  ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}\n\`\`\`\n\n### Docker Compose\n\`\`\`yaml\nservices:\n  commons-proxy:\n    image: ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}\n    ports:\n      - "8080:8080"\n    volumes:\n      - ~/.config/commons-proxy:/app/data/.config/commons-proxy\n    restart: unless-stopped\n\`\`\`\n\n### Available Tags\n- \`${{ steps.version.outputs.version }}\` - Specific version\n- \`${{ steps.version.outputs.minor }}\` - Minor version\n- \`${{ steps.version.outputs.major }}\` - Major version\n- \`latest\` - Latest stable release\n\n### Multi-Architecture Support\n- \`linux/amd64\` (x86_64)\n- \`linux/arm64\` (ARM64/Apple Silicon)`;
+            
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id,
+              body: release.data.body + dockerInstructions
+            });
+
+      - name: Generate image summary
+        run: |
+          echo "## Docker Image Published 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image**: \`ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags**:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.version.outputs.minor }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.version.outputs.major }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms**: linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY

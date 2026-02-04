@@ -26,8 +26,8 @@ USAGE:
 
 COMMANDS:
   start                 Start the proxy server (default port: 8080)
-  accounts              Manage Google accounts (interactive)
-  accounts add          Add a new Google account via OAuth
+  accounts              Manage accounts (interactive)
+  accounts add          Add a new account (prompts for provider)
   accounts list         List all configured accounts
   accounts remove       Remove accounts interactively
   accounts verify       Verify account tokens are valid
@@ -36,15 +36,41 @@ COMMANDS:
 OPTIONS:
   --help, -h            Show this help message
   --version, -v         Show version number
+  --strategy=<type>     Account selection strategy (sticky|round-robin|hybrid)
+  --fallback            Enable model fallback when quota exhausted
+  --debug               Enable debug logging
+  --no-browser          Use manual code input for OAuth (headless servers)
 
 ENVIRONMENT:
   PORT                  Server port (default: 8080)
+  WEBUI_PASSWORD        Password protect WebUI (optional)
+  STRATEGY              Account selection strategy (default: hybrid)
+  FALLBACK              Enable model fallback (true|false)
+  DEBUG                 Enable debug logging (true|false)
+
+PROVIDERS:
+  🔵 Google Cloud Code  OAuth 2.0 flow for Claude & Gemini models
+  🟠 Anthropic          Direct API access via API key
+  🟢 OpenAI             GPT models via API key (supports Azure)
+  🟣 GitHub Models      GitHub marketplace access via Personal Access Token
 
 EXAMPLES:
+  # Start server with default settings
   commons-proxy start
-  PORT=3000 commons-proxy start
-  commons-proxy accounts add
+  
+  # Start with custom port and strategy
+  PORT=3000 commons-proxy start --strategy=round-robin
+  
+  # Start with model fallback enabled
+  commons-proxy start --fallback --debug
+  
+  # Add accounts from different providers
+  commons-proxy accounts add              # Interactive (prompts for provider)
+  commons-proxy accounts add --no-browser # Manual OAuth code input
+  
+  # List and verify accounts
   commons-proxy accounts list
+  commons-proxy accounts verify
 
 CONFIGURATION:
   Claude Code CLI (~/.claude/settings.json):
@@ -53,6 +79,15 @@ CONFIGURATION:
         "ANTHROPIC_BASE_URL": "http://localhost:8080"
       }
     }
+  
+  Web Interface:
+    http://localhost:8080 - Manage accounts, view stats, configure settings
+
+DOCUMENTATION:
+  Getting Started:  docs/PROVIDERS.md - Setup guides for all providers
+  Contributing:     CONTRIBUTING.md - Developer onboarding guide
+  GitHub:           https://github.com/AryanVBW/CommonsProxy
+  npm:              https://www.npmjs.com/package/commons-proxy
 `);
 }
 
