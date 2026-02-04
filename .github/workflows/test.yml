@@ -1,0 +1,131 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Verify CSS build
+        run: |
+          if [ ! -f public/css/style.css ]; then
+            echo "❌ CSS build failed: public/css/style.css not found"
+            exit 1
+          fi
+          echo "✅ CSS built successfully"
+
+      - name: Start server
+        run: |
+          npm start &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "Server started with PID: $SERVER_PID"
+
+      - name: Wait for server to be ready
+        run: |
+          echo "Waiting for server health check..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✅ Server is ready"
+              exit 0
+            fi
+            echo "Attempt $i: Server not ready yet, waiting..."
+            sleep 2
+          done
+          echo "❌ Server failed to start within 60 seconds"
+          exit 1
+
+      - name: Run test suite
+        run: npm test
+        continue-on-error: false
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ ! -z "$SERVER_PID" ]; then
+            kill $SERVER_PID || true
+            echo "Server stopped"
+          fi
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-node-${{ matrix.node-version }}
+          path: |
+            logs/
+            data/
+          retention-days: 7
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for syntax errors
+        run: node -c src/index.js
+
+      - name: Verify package.json
+        run: |
+          node -e "const pkg = require('./package.json'); 
+          if (!pkg.version) throw new Error('Missing version');
+          if (!pkg.main) throw new Error('Missing main');
+          console.log('✅ package.json is valid');"
+
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test npm pack
+        run: |
+          npm pack
+          TARBALL=$(ls *.tgz)
+          echo "Testing tarball: $TARBALL"
+          tar -tzf $TARBALL | head -20
+          rm $TARBALL
+          echo "✅ npm pack successful"

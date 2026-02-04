@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  commons-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: commons-proxy:latest
+    container_name: commons-proxy
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist account configuration
+      - ~/.config/commons-proxy:/app/data/.config/commons-proxy
+      # Optional: Mount local data directory for logs/stats
+      - ./data:/app/data
+    environment:
+      # Server configuration
+      - PORT=8080
+      - NODE_ENV=production
+      
+      # Optional: Enable debug logging
+      # - DEBUG=true
+      
+      # Optional: Password protect WebUI
+      # - WEBUI_PASSWORD=your-secure-password
+      
+      # Optional: Enable model fallback
+      # - FALLBACK=true
+      
+      # Optional: Account selection strategy (sticky|round-robin|hybrid)
+      # - STRATEGY=hybrid
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - commons-proxy-network
+
+networks:
+  commons-proxy-network:
+    driver: bridge

@@ -2,29 +2,60 @@
 
 [![npm version](https://img.shields.io/npm/v/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)
 [![npm downloads](https://img.shields.io/npm/dm/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://ghcr.io/aryanvbw/commonsproxy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <a href="https://buymeacoffee.com/badrinarayanans" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
-A universal proxy server that exposes an **Anthropic-compatible API** backed by **Google Cloud Code** and other providers, letting you use Claude, Gemini, and other models with **Claude Code CLI**.
+A **universal AI proxy server** exposing an **Anthropic-compatible API** backed by **multiple providers** (Google Cloud Code, Anthropic, OpenAI, GitHub Models), enabling you to use Claude, Gemini, GPT, and more with **Claude Code CLI**.
 
-![CommonsProxy Banner](images/banner.png)
+> 🎉 **v2.0.0 Released**: Now supporting Anthropic, OpenAI, and GitHub Models in addition to Google Cloud Code!
+
+📚 **Quick Links**: [Installation](#installation) | [Provider Setup](docs/PROVIDERS.md) | [Docker](#option-3-docker-recommended-for-production) | [Contributing](CONTRIBUTING.md)
 
 ## How It Works
 
 ```
-┌──────────────────┐     ┌─────────────────────┐     ┌────────────────────────────┐
-│   Claude Code    │────▶│    CommonsProxy     │────▶│  Google Cloud Code API     │
-│   (Anthropic     │     │  (Anthropic → Google│     │  (cloudcode-pa.            │
-│    API format)   │     │   Generative AI)    │     │   googleapis.com)          │
-└──────────────────┘     └─────────────────────┘     └────────────────────────────┘
+┌──────────────────┐     ┌─────────────────────┐     ┌─────────────────────────┐
+│   Claude Code    │────▶│    CommonsProxy     │────▶│  Multiple Providers:    │
+│   (Anthropic     │     │   (Universal Router)│     │  • Google Cloud Code    │
+│    API format)   │     │                     │     │  • Anthropic API        │
+└──────────────────┘     └─────────────────────┘     │  • OpenAI API           │
+                                                      │  • GitHub Models        │
+                                                      └─────────────────────────┘
 ```
 
-1. Receives requests in **Anthropic Messages API format**
-2. Uses OAuth tokens from added Google accounts (or IDE's local database)
-3. Transforms to **Google Generative AI format** with Cloud Code wrapping
-4. Sends to Google Cloud Code API
-5. Converts responses back to **Anthropic format** with full thinking/streaming support
+**Request Flow**:
+1. Claude Code CLI sends request in **Anthropic Messages API format**
+2. CommonsProxy routes to appropriate provider based on account configuration
+3. Transforms request to **provider-specific format** (Google Generative AI, Anthropic, OpenAI, GitHub)
+4. Sends to provider's API using OAuth or API Key authentication
+5. Converts response back to **Anthropic format** with full streaming and thinking support
+
+**Key Features**:
+- 🔄 **Multi-Provider Support**: Use Google, Anthropic, OpenAI, and GitHub accounts
+- 🔐 **Flexible Authentication**: OAuth 2.0 (Google) or API Keys (others)
+- ⚖️ **Intelligent Load Balancing**: Hybrid/Sticky/Round-Robin strategies
+- 📊 **Real-time Quota Tracking**: Dashboard shows usage across all providers
+- 💾 **Prompt Caching**: Maintains cache continuity with sticky account selection
+- 🎨 **Web Management UI**: Easy account management and monitoring
+
+## 🎯 Supported Providers
+
+| Provider | Auth Method | Available Models | Quota Tracking | Status |
+|----------|-------------|------------------|----------------|--------|
+| **Google Cloud Code** | OAuth 2.0 with PKCE | Claude 3.5 Sonnet/Opus, Gemini 2.0 Flash/Pro | ✅ Real-time via API | ✅ Primary |
+| **Anthropic** | API Key | Claude 3.5 Sonnet/Opus/Haiku | ⚠️ Manual (console) | ✅ Supported |
+| **OpenAI** | API Key | GPT-4 Turbo, GPT-4, GPT-3.5 Turbo | ⚠️ Manual (console) | ✅ Supported |
+| **GitHub Models** | Personal Access Token | GitHub Marketplace models | ⚠️ GitHub API limits | ✅ Supported |
+
+**Quota Tracking Legend**:
+- ✅ **Real-time via API**: CommonsProxy automatically fetches and displays quota in WebUI
+- ⚠️ **Manual**: Check quota limits in the provider's web console
+
+**Custom Endpoints**: OpenAI provider supports custom API endpoints (Azure OpenAI, self-hosted APIs)
+
+📖 **Setup Guides**: See [`docs/PROVIDERS.md`](docs/PROVIDERS.md) for detailed setup instructions for each provider.
 
 ## Prerequisites
 
@@ -55,6 +86,34 @@ npm install
 npm start
 ```
 
+### Option 3: Docker 🐳 (Recommended for Production)
+
+```bash
+# Pull and run from GitHub Container Registry
+docker run -d \
+  --name commons-proxy \
+  -p 8080:8080 \
+  -v ~/.config/commons-proxy:/app/data/.config/commons-proxy \
+  ghcr.io/aryanvbw/commonsproxy:latest
+
+# Or use docker-compose
+curl -O https://raw.githubusercontent.com/AryanVBW/CommonsProxy/main/docker-compose.yml
+docker-compose up -d
+```
+
+**Access WebUI**: Open `http://localhost:8080` to configure accounts
+
+**Environment Variables**:
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  -e DEBUG=true \
+  -e WEBUI_PASSWORD=your-password \
+  -v ~/.config/commons-proxy:/app/data/.config/commons-proxy \
+  ghcr.io/aryanvbw/commonsproxy:latest
+```
+
 ---
 
 ## Quick Start
@@ -76,39 +135,85 @@ The server runs on `http://localhost:8080` by default.
 
 ### 2. Link Account(s)
 
-Choose one of the following methods to authorize the proxy:
+CommonsProxy supports multiple AI providers. Add one or more accounts to get started.
 
-#### **Method A: Web Dashboard (Recommended)**
+> 💡 **Tip**: You can mix and match providers! Add multiple Google accounts for load balancing, plus Anthropic/OpenAI as fallbacks.
 
-1. With the proxy running, open `http://localhost:8080` in your browser.
-2. Navigate to the **Accounts** tab and click **Add Account**.
-3. Complete the Google OAuth authorization in the popup window.
+---
 
-> **Headless/Remote Servers**: If running on a server without a browser, the WebUI supports a "Manual Authorization" mode. After clicking "Add Account", you can copy the OAuth URL, complete authorization on your local machine, and paste the authorization code back.
+#### 🔵 Google Cloud Code (OAuth 2.0)
 
-#### **Method B: CLI (Desktop or Headless)**
+**Best for**: Claude and Gemini models with real-time quota tracking
 
-If you prefer the terminal or are on a remote server:
+**WebUI Setup** (Recommended):
+1. Navigate to `http://localhost:8080` → **Accounts** tab → **Add Account**
+2. Select **Google Cloud Code** from provider dropdown
+3. Complete OAuth authorization in popup window
 
+**CLI Setup**:
 ```bash
 # Desktop (opens browser)
-commons-proxy accounts add
+commons-proxy accounts add --provider=google
 
-# Headless (Docker/SSH)
-commons-proxy accounts add --no-browser
+# Headless server (manual code input)
+commons-proxy accounts add --provider=google --no-browser
 ```
 
-> For full CLI account management options, run `commons-proxy accounts --help`.
+**Available Models**: `claude-sonnet-4-5`, `claude-opus-4-5`, `gemini-3-flash`, `gemini-3-pro-low`, `gemini-3-pro-high`
 
-#### **Method C: Automatic (IDE Users)**
+---
 
-If you have **Windsurf** or **Cursor** IDE installed and logged in with Google, the proxy will automatically detect your local session. No additional setup is required.
+#### 🟠 Anthropic (API Key)
 
-To use a custom port:
+**Best for**: Direct Claude API access with official rate limits
 
-```bash
-PORT=3001 commons-proxy start
-```
+**Prerequisites**: Anthropic account at [console.anthropic.com](https://console.anthropic.com), API key with billing enabled
+
+**Setup**:
+1. Get API key: https://console.anthropic.com/settings/keys
+2. In WebUI: **Accounts** → **Add Account** → **Anthropic** → Paste key
+3. Or CLI: `commons-proxy accounts add --provider=anthropic`
+
+**Available Models**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`
+
+---
+
+#### 🟢 OpenAI (API Key)
+
+**Best for**: GPT models and Azure OpenAI integration
+
+**Prerequisites**: OpenAI account at [platform.openai.com](https://platform.openai.com), API key with credits
+
+**Setup**:
+1. Get API key: https://platform.openai.com/api-keys
+2. In WebUI: **Accounts** → **Add Account** → **OpenAI** → Paste key
+3. Optional: Enable "Custom Endpoint" for Azure OpenAI
+4. Or CLI: `commons-proxy accounts add --provider=openai`
+
+**Available Models**: `gpt-4-turbo-preview`, `gpt-4`, `gpt-3.5-turbo`
+
+**Azure OpenAI**: Supports custom endpoints for Azure deployments
+
+---
+
+#### 🟣 GitHub Models (Personal Access Token)
+
+**Best for**: Access to GitHub Marketplace models (beta)
+
+**Prerequisites**: GitHub account, Personal Access Token with `read:packages` scope
+
+**Setup**:
+1. Create PAT: https://github.com/settings/tokens
+2. In WebUI: **Accounts** → **Add Account** → **GitHub Models** → Paste token
+3. Or CLI: `commons-proxy accounts add --provider=github`
+
+**Available Models**: GitHub Marketplace models (varies by account/region)
+
+---
+
+📚 **Detailed Guides**: For step-by-step instructions with screenshots and troubleshooting, see:
+- [`docs/PROVIDERS.md`](docs/PROVIDERS.md) - Complete provider setup guides
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Adding new providers
 
 ### 3. Verify It's Working
 
