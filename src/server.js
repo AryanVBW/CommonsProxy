@@ -365,11 +365,13 @@ app.get('/account-limits', async (req, res) => {
                 try {
                     const token = await accountManager.getTokenForAccount(account);
 
-                    // Fetch subscription tier first to get project ID
-                    const subscription = await getSubscriptionTier(token);
+                    // Use provider-aware quota fetching
+                    const { getProviderForAccount } = await import('./providers/index.js');
+                    const provider = getProviderForAccount(account);
 
-                    // Then fetch quotas with project ID for accurate quota info
-                    const quotas = await getModelQuotas(token, subscription.projectId);
+                    // Fetch subscription tier and quotas using provider
+                    const subscription = await provider.getSubscriptionTier(account, token);
+                    const quotas = await provider.getQuotas(account, token);
 
                     // Update account object with fresh data
                     account.subscription = {
@@ -378,7 +380,7 @@ app.get('/account-limits', async (req, res) => {
                         detectedAt: Date.now()
                     };
                     account.quota = {
-                        models: quotas,
+                        models: quotas.models || quotas,
                         lastChecked: Date.now()
                     };
 
@@ -390,14 +392,16 @@ app.get('/account-limits', async (req, res) => {
                     return {
                         email: account.email,
                         status: 'ok',
+                        provider: account.provider || 'google',
                         subscription: account.subscription,
-                        models: quotas
+                        models: quotas.models || quotas
                     };
                 } catch (error) {
                     return {
                         email: account.email,
                         status: 'error',
                         error: error.message,
+                        provider: account.provider || 'google',
                         subscription: account.subscription || { tier: 'unknown', projectId: null },
                         models: {}
                     };

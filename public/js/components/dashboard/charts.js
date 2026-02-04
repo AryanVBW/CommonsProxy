@@ -36,12 +36,19 @@ const FAMILY_COLORS = {
   },
 };
 
+const PROVIDER_COLORS = {
+  google: '#4285f4',
+  anthropic: '#d97706',
+  openai: '#10b981',
+  github: '#6366f1'
+};
+
 const MODEL_COLORS = Array.from({ length: 16 }, (_, i) =>
   getThemeColor(`--color-chart-${i + 1}`)
 );
 
 // Export constants for filter module
-window.DashboardConstants = { FAMILY_COLORS, MODEL_COLORS };
+window.DashboardConstants = { FAMILY_COLORS, MODEL_COLORS, PROVIDER_COLORS };
 
 // Module-level lock to prevent concurrent chart updates (fixes race condition)
 let _trendChartUpdateLock = false;

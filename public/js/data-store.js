@@ -259,7 +259,8 @@ document.addEventListener('alpine:init', () => {
                         email: acc.email.split('@')[0],
                         fullEmail: acc.email,
                         pct: pct,
-                        resetTime: limit.resetTime
+                        resetTime: limit.resetTime,
+                        provider: acc.provider || 'google'
                     });
                 });
 
@@ -279,7 +280,8 @@ document.addEventListener('alpine:init', () => {
                     quotaInfo,
                     pinned: !!config.pinned,
                     hidden: !!isHidden, // Use computed visibility
-                    activeCount: quotaInfo.filter(q => q.pct > 0).length
+                    activeCount: quotaInfo.filter(q => q.pct > 0).length,
+                    providers: [...new Set(quotaInfo.map(q => q.provider || 'google'))] // Unique providers for this model
                 });
             });
 

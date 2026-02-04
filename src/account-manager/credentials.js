@@ -17,6 +17,7 @@ import { logger } from '../utils/logger.js';
 import { isNetworkError } from '../utils/helpers.js';
 import { onboardUser, getDefaultTierId } from './onboarding.js';
 import { parseTierId } from '../cloudcode/model-api.js';
+import { getProviderForAccount } from '../providers/index.js';
 
 // Track accounts currently fetching subscription to avoid duplicate calls
 const subscriptionFetchInProgress = new Set();
@@ -54,7 +55,7 @@ async function fetchAndSaveSubscription(token, account, onSave) {
 }
 
 /**
- * Get OAuth token for an account
+ * Get OAuth token for an account using provider abstraction
  *
  * @param {Object} account - Account object with email and credentials
  * @param {Map} tokenCache - Token cache map
@@ -70,41 +71,43 @@ export async function getTokenForAccount(account, tokenCache, onInvalid, onSave)
         return cached.token;
     }
 
-    // Get fresh token based on source
     let token;
 
-    if (account.source === 'oauth' && account.refreshToken) {
-        // OAuth account - use refresh token to get new access token
-        try {
-            const tokens = await refreshAccessToken(account.refreshToken);
-            token = tokens.accessToken;
-            // Clear invalid flag on success
-            if (account.isInvalid) {
-                account.isInvalid = false;
-                account.invalidReason = null;
-                if (onSave) await onSave();
-            }
-            logger.success(`[AccountManager] Refreshed OAuth token for: ${account.email}`);
-        } catch (error) {
-            // Check if it's a transient network error
-            if (isNetworkError(error)) {
-                logger.warn(`[AccountManager] Failed to refresh token for ${account.email} due to network error: ${error.message}`);
-                // Do NOT mark as invalid, just throw so caller knows it failed
-                throw new Error(`AUTH_NETWORK_ERROR: ${error.message}`);
-            }
+    try {
+        // Use provider system to get access token
+        const provider = getProviderForAccount(account);
+        token = await provider.getAccessToken(account);
 
-            logger.error(`[AccountManager] Failed to refresh token for ${account.email}:`, error.message);
-            // Mark account as invalid (credentials need re-auth)
-            if (onInvalid) onInvalid(account.email, error.message);
-            throw new Error(`AUTH_INVALID: ${account.email}: ${error.message}`);
+        // Clear invalid flag on success
+        if (account.isInvalid) {
+            account.isInvalid = false;
+            account.invalidReason = null;
+            if (onSave) await onSave();
         }
-    } else if (account.source === 'manual' && account.apiKey) {
-        token = account.apiKey;
-    } else {
-        // Extract from database
-        const dbPath = account.dbPath || CLOUDCODE_DB_PATH;
-        const authData = getAuthStatus(dbPath);
-        token = authData.apiKey;
+
+        logger.success(`[AccountManager] Got access token for ${account.email} (${provider.name})`);
+    } catch (error) {
+        // Check if it's a transient network error
+        if (isNetworkError(error)) {
+            logger.warn(`[AccountManager] Failed to get token for ${account.email} due to network error: ${error.message}`);
+            // Do NOT mark as invalid, just throw so caller knows it failed
+            throw new Error(`AUTH_NETWORK_ERROR: ${error.message}`);
+        }
+
+        logger.error(`[AccountManager] Failed to get token for ${account.email}:`, error.message);
+
+        // Check if provider recommends invalidating credentials
+        try {
+            const provider = getProviderForAccount(account);
+            if (provider.shouldInvalidateCredentials(error)) {
+                if (onInvalid) onInvalid(account.email, error.message);
+            }
+        } catch (providerError) {
+            // Provider detection failed, use legacy behavior
+            logger.debug('[AccountManager] Provider detection failed, using legacy error handling');
+        }
+
+        throw new Error(`AUTH_INVALID: ${account.email}: ${error.message}`);
     }
 
     // Cache the token

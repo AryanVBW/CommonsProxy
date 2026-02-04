@@ -41,6 +41,28 @@ window.Components.accountManager = () => ({
         return email;
     },
 
+    getProviderName(account) {
+        const provider = account.provider || 'google';
+        const names = {
+            google: 'Google',
+            anthropic: 'Anthropic',
+            openai: 'OpenAI',
+            github: 'GitHub'
+        };
+        return names[provider] || provider.toUpperCase();
+    },
+
+    getProviderColor(account) {
+        const provider = account.provider || 'google';
+        const colors = {
+            google: '#4285f4',
+            anthropic: '#d97706',
+            openai: '#10b981',
+            github: '#6366f1'
+        };
+        return colors[provider] || '#4285f4';
+    },
+
     async refreshAccount(email) {
         return await window.ErrorHandler.withLoading(async () => {
             const store = Alpine.store('global');

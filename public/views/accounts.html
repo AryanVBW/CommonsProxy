@@ -87,7 +87,7 @@
                 <tr class="bg-space-900/50 border-b border-space-border/50">
                     <th class="pl-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-16" x-text="$store.global.t('enabled')">Enabled</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider flex-1 min-w-[200px]" x-text="$store.global.t('accountEmail')">Account (Email)</th>
-                    <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-20" x-text="$store.global.t('source')">Source</th>
+                    <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-20">Provider</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-16" x-text="$store.global.t('tier')">Tier</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-32" x-text="$store.global.t('quota')">Quota</th>
                     <th class="py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-24" x-text="$store.global.t('health')">Health</th>
@@ -147,8 +147,9 @@
                             </div>
                         </td>
                         <td class="py-4">
-                            <span :class="acc.source === 'oauth' ? 'status-pill-purple' : 'status-pill-free'"
-                                  x-text="acc.source || 'oauth'">
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase"
+                                  :style="`background-color: ${getProviderColor(acc)}40; color: ${getProviderColor(acc)}; border: 1px solid ${getProviderColor(acc)}`"
+                                  x-text="getProviderName(acc)">
                             </span>
                         </td>
                         <td class="py-4">

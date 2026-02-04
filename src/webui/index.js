@@ -17,11 +17,12 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { getPublicConfig, saveConfig, config } from '../config.js';
-import { DEFAULT_PORT, ACCOUNT_CONFIG_PATH, MAX_ACCOUNTS } from '../constants.js';
+import { DEFAULT_PORT, ACCOUNT_CONFIG_PATH, MAX_ACCOUNTS, PROVIDER_CONFIG, PROVIDER_NAMES } from '../constants.js';
 import { readClaudeConfig, updateClaudeConfig, replaceClaudeConfig, getClaudeConfigPath, readPresets, savePreset, deletePreset } from '../utils/claude-config.js';
 import { logger } from '../utils/logger.js';
 import { getAuthorizationUrl, completeOAuthFlow, startCallbackServer } from '../auth/oauth.js';
 import { loadAccounts, saveAccounts } from '../account-manager/storage.js';
+import { getAllAuthProviders, getAuthProvider } from '../providers/index.js';
 
 // Get package version
 const __filename = fileURLToPath(import.meta.url);
@@ -366,6 +367,110 @@ export function mountWebUI(app, dirname, accountManager) {
             });
         } catch (error) {
             logger.error('[WebUI] Import accounts error:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    // ==========================================
+    // Provider Management API
+    // ==========================================
+
+    /**
+     * GET /api/providers - List all available authentication providers
+     */
+    app.get('/api/providers', (req, res) => {
+        try {
+            const providers = getAllAuthProviders();
+            // Add additional metadata from PROVIDER_CONFIG
+            const enrichedProviders = providers.map(p => ({
+                ...p,
+                config: PROVIDER_CONFIG[p.id] || {}
+            }));
+
+            res.json({
+                status: 'ok',
+                providers: enrichedProviders
+            });
+        } catch (error) {
+            logger.error('[WebUI] Error getting providers:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    /**
+     * POST /api/providers/:providerId/validate - Validate credentials for a provider
+     */
+    app.post('/api/providers/:providerId/validate', async (req, res) => {
+        try {
+            const { providerId } = req.params;
+            const { email, apiKey, customApiEndpoint } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ status: 'error', error: 'email is required' });
+            }
+
+            // Create temporary account object for validation
+            const tempAccount = {
+                email,
+                apiKey,
+                customApiEndpoint,
+                provider: providerId
+            };
+
+            // Get provider and validate
+            const provider = getAuthProvider(providerId);
+            const result = await provider.validateCredentials(tempAccount);
+
+            res.json({
+                status: 'ok',
+                valid: result.valid,
+                email: result.email,
+                error: result.error || null
+            });
+        } catch (error) {
+            logger.error('[WebUI] Error validating provider credentials:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    /**
+     * POST /api/accounts/add - Add account with provider
+     */
+    app.post('/api/accounts/add', async (req, res) => {
+        try {
+            const { email, provider, apiKey, customApiEndpoint } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ status: 'error', error: 'email is required' });
+            }
+
+            if (!provider) {
+                return res.status(400).json({ status: 'error', error: 'provider is required' });
+            }
+
+            // For non-Google providers, API key is required
+            if (provider !== 'google' && !apiKey) {
+                return res.status(400).json({ status: 'error', error: 'apiKey is required for this provider' });
+            }
+
+            // Add account
+            await addAccount({
+                email,
+                provider,
+                source: provider === 'google' ? 'oauth' : 'manual',
+                apiKey,
+                customApiEndpoint
+            });
+
+            // Reload AccountManager
+            await accountManager.reload();
+
+            res.json({
+                status: 'ok',
+                message: `Account ${email} added with provider ${provider}`
+            });
+        } catch (error) {
+            logger.error('[WebUI] Error adding account:', error);
             res.status(500).json({ status: 'error', error: error.message });
         }
     });

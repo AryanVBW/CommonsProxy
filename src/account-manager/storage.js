@@ -12,6 +12,24 @@ import { getAuthStatus } from '../auth/database.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * Detect provider from legacy source field
+ * @param {string} source - Account source ('oauth', 'manual', 'database')
+ * @returns {string} Provider ID
+ */
+function detectProviderFromSource(source) {
+    // Legacy accounts use 'oauth' or 'database' for Google OAuth
+    if (source === 'oauth' || source === 'database') {
+        return 'google';
+    }
+    // Manual accounts default to Google (legacy behavior)
+    if (source === 'manual') {
+        return 'google';
+    }
+    // Default to Google
+    return 'google';
+}
+
+/**
  * Load accounts from the config file
  *
  * @param {string} configPath - Path to the config file
@@ -34,7 +52,10 @@ export async function loadAccounts(configPath = ACCOUNT_CONFIG_PATH) {
             modelRateLimits: acc.modelRateLimits || {},
             // New fields for subscription and quota tracking
             subscription: acc.subscription || { tier: 'unknown', projectId: null, detectedAt: null },
-            quota: acc.quota || { models: {}, lastChecked: null }
+            quota: acc.quota || { models: {}, lastChecked: null },
+            // Multi-provider support
+            provider: acc.provider || detectProviderFromSource(acc.source),
+            customApiEndpoint: acc.customApiEndpoint || null
         }));
 
         const settings = config.settings || {};
@@ -114,7 +135,7 @@ export async function saveAccounts(configPath, accounts, settings, activeIndex) 
                 enabled: acc.enabled !== false, // Persist enabled state
                 dbPath: acc.dbPath || null,
                 refreshToken: acc.source === 'oauth' ? acc.refreshToken : undefined,
-                apiKey: acc.source === 'manual' ? acc.apiKey : undefined,
+                apiKey: (acc.source === 'manual' || acc.provider !== 'google') ? acc.apiKey : undefined,
                 projectId: acc.projectId || undefined,
                 addedAt: acc.addedAt || undefined,
                 isInvalid: acc.isInvalid || false,
@@ -123,7 +144,10 @@ export async function saveAccounts(configPath, accounts, settings, activeIndex) 
                 lastUsed: acc.lastUsed,
                 // Persist subscription and quota data
                 subscription: acc.subscription || { tier: 'unknown', projectId: null, detectedAt: null },
-                quota: acc.quota || { models: {}, lastChecked: null }
+                quota: acc.quota || { models: {}, lastChecked: null },
+                // Multi-provider support
+                provider: acc.provider || detectProviderFromSource(acc.source),
+                customApiEndpoint: acc.customApiEndpoint || undefined
             })),
             settings: settings,
             activeIndex: activeIndex

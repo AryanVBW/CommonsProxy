@@ -272,6 +272,63 @@ export const DEFAULT_PRESETS = [
     }
 ];
 
+// Provider configuration
+export const PROVIDER_CONFIG = {
+    google: {
+        id: 'google',
+        name: 'Google Cloud Code',
+        authType: 'oauth',
+        apiEndpoint: CLOUDCODE_ENDPOINT_DAILY,
+        color: '#4285f4', // Google Blue
+        icon: 'google',
+        requiresProjectId: true
+    },
+    anthropic: {
+        id: 'anthropic',
+        name: 'Anthropic',
+        authType: 'api-key',
+        apiEndpoint: 'https://api.anthropic.com',
+        color: '#d97706', // Orange
+        icon: 'anthropic',
+        requiresProjectId: false
+    },
+    openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        authType: 'api-key',
+        apiEndpoint: 'https://api.openai.com',
+        color: '#10b981', // Green
+        icon: 'openai',
+        requiresProjectId: false
+    },
+    github: {
+        id: 'github',
+        name: 'GitHub Models',
+        authType: 'pat', // Personal Access Token
+        apiEndpoint: 'https://models.inference.ai.azure.com',
+        modelsEndpoint: 'https://api.github.com/models',
+        color: '#6366f1', // Indigo
+        icon: 'github',
+        requiresProjectId: false
+    }
+};
+
+// Provider display names
+export const PROVIDER_NAMES = {
+    google: 'Google Cloud Code',
+    anthropic: 'Anthropic',
+    openai: 'OpenAI',
+    github: 'GitHub Models'
+};
+
+// Provider colors for UI visualization
+export const PROVIDER_COLORS = {
+    google: '#4285f4',
+    anthropic: '#d97706',
+    openai: '#10b981',
+    github: '#6366f1'
+};
+
 export default {
     // New exports
     CLOUDCODE_ENDPOINT_FALLBACKS,
@@ -321,5 +378,8 @@ export default {
     STRATEGY_LABELS,
     MODEL_FALLBACK_MAP,
     TEST_MODELS,
-    DEFAULT_PRESETS
+    DEFAULT_PRESETS,
+    PROVIDER_CONFIG,
+    PROVIDER_NAMES,
+    PROVIDER_COLORS
 };
