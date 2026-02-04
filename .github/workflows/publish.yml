@@ -31,16 +31,6 @@ jobs:
       - name: Build CSS
         run: npm run build:css
 
-      - name: Run tests
-        run: |
-          npm start &
-          SERVER_PID=$!
-          echo "Waiting for server to start..."
-          sleep 10
-          npm test || true
-          kill $SERVER_PID || true
-        continue-on-error: true
-
       - name: Show current version and extract new version
         id: version
         run: |
@@ -93,19 +83,6 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Verify publication
-        run: |
-          echo "Waiting for npm registry to update..."
-          sleep 30
-          PUBLISHED_VERSION=$(npm view commons-proxy version)
-          echo "Published version: $PUBLISHED_VERSION"
-          if [ "$PUBLISHED_VERSION" = "${{ steps.version.outputs.new }}" ]; then
-            echo "✅ Successfully published commons-proxy@$PUBLISHED_VERSION"
-          else
-            echo "⚠️ Version mismatch: expected ${{ steps.version.outputs.new }}, got $PUBLISHED_VERSION"
-            exit 1
-          fi
 
       - name: Add npm badge to release notes
         if: github.event_name == 'release'

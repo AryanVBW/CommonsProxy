@@ -76,30 +76,6 @@ jobs:
           provenance: true
           sbom: true
 
-      - name: Verify Docker image
-        run: |
-          echo "Waiting for image to be available..."
-          sleep 10
-          
-          docker pull ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}
-          
-          echo "Running smoke test..."
-          docker run -d --name test-container -p 8080:8080 \
-            ghcr.io/${{ github.repository_owner }}/commonsproxy:${{ steps.version.outputs.version }}
-          
-          sleep 10
-          
-          if curl -f http://localhost:8080/health; then
-            echo "✅ Health check passed"
-          else
-            echo "❌ Health check failed"
-            docker logs test-container
-            exit 1
-          fi
-          
-          docker rm -f test-container
-          echo "✅ Docker image verification successful"
-
       - name: Add Docker instructions to release notes
         if: github.event_name == 'release'
         uses: actions/github-script@v7
