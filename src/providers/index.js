@@ -19,6 +19,7 @@ import OpenAIProvider from './openai-provider.js';
 import GitHubProvider from './github-provider.js';
 import CopilotProvider from './copilot.js';
 import OpenRouterProvider from './openrouter-provider.js';
+import CodexProvider from './codex-provider.js';
 
 // Provider registry (legacy system for message routing providers)
 const messagingProviders = new Map();
@@ -33,6 +34,7 @@ authProviders.set('openai', new OpenAIProvider());
 authProviders.set('github', new GitHubProvider());
 authProviders.set('copilot', new CopilotProvider());
 authProviders.set('openrouter', new OpenRouterProvider());
+authProviders.set('codex', new CodexProvider());
 
 /**
  * Provider interface definition
@@ -185,7 +187,8 @@ export {
     OpenAIProvider,
     GitHubProvider,
     CopilotProvider,
-    OpenRouterProvider
+    OpenRouterProvider,
+    CodexProvider
 };
 
 export default {
@@ -207,6 +210,7 @@ export default {
     GitHubProvider,
     CopilotProvider,
     OpenRouterProvider,
+    CodexProvider,
     // Enums
     ProviderType
 };

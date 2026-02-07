@@ -165,6 +165,14 @@ function parseError(error) {
         statusCode = 400;
         const msgMatch = error.message.match(/"message":"([^"]+)"/);
         if (msgMatch) errorMessage = msgMatch[1];
+    } else if (error.message.includes('Max retries exceeded') || error.message.includes('MAX_RETRIES')) {
+        errorType = 'api_error';
+        statusCode = 529;
+        errorMessage = 'All accounts exhausted after maximum retries. All accounts may be rate-limited or unavailable. Please wait a few minutes and try again, or add more accounts.';
+    } else if (error.message.includes('No accounts available')) {
+        errorType = 'api_error';
+        statusCode = 503;
+        errorMessage = 'No accounts available. Please add accounts via the WebUI or CLI, or wait for rate-limited accounts to recover.';
     } else if (error.message.includes('All endpoints failed')) {
         errorType = 'api_error';
         statusCode = 503;

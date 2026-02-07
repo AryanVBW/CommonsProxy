@@ -23,7 +23,7 @@ import {
     QUOTA_EXHAUSTED_BACKOFF_TIERS_MS,
     MIN_BACKOFF_MS
 } from '../constants.js';
-import { isRateLimitError, isAuthError, isEmptyResponseError } from '../errors.js';
+import { isRateLimitError, isAuthError, isEmptyResponseError, MaxRetriesError } from '../errors.js';
 import { formatDuration, sleep, isNetworkError } from '../utils/helpers.js';
 import { logger } from '../utils/logger.js';
 import { parseResetTime, parseRateLimitReason } from './rate-limit-parser.js';
@@ -565,7 +565,7 @@ export async function* sendMessageStream(anthropicRequest, accountManager, fallb
         }
     }
 
-    throw new Error('Max retries exceeded');
+    throw new MaxRetriesError('Max retries exceeded', maxAttempts);
 }
 
 /**

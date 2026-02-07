@@ -49,7 +49,8 @@ window.Components.accountManager = () => ({
             openai: 'OpenAI',
             github: 'GitHub',
             copilot: 'Copilot',
-            openrouter: 'OpenRouter'
+            openrouter: 'OpenRouter',
+            codex: 'Codex'
         };
         return names[provider] || provider.toUpperCase();
     },
@@ -62,7 +63,8 @@ window.Components.accountManager = () => ({
             openai: '#10b981',
             github: '#6366f1',
             copilot: '#f97316',
-            openrouter: '#6d28d9'
+            openrouter: '#6d28d9',
+            codex: '#10b981'
         };
         return colors[provider] || '#4285f4';
     },

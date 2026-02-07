@@ -29,6 +29,13 @@ window.Components.addAccountModal = () => ({
     copilotPolling: false,
     copilotPollTimer: null,
 
+    // Codex Device Auth state
+    codexFlowId: null,
+    codexUserCode: '',
+    codexVerificationUri: '',
+    codexPolling: false,
+    codexPollTimer: null,
+
     async init() {
         // Fetch available providers on modal init
         await this.loadProviders();
@@ -62,7 +69,8 @@ window.Components.addAccountModal = () => ({
                 { id: 'openai', name: 'OpenAI', authType: 'api-key', color: '#10b981' },
                 { id: 'github', name: 'GitHub Models', authType: 'api-key', color: '#6366f1' },
                 { id: 'copilot', name: 'GitHub Copilot', authType: 'device-auth', color: '#f97316' },
-                { id: 'openrouter', name: 'OpenRouter', authType: 'api-key', color: '#6d28d9' }
+                { id: 'openrouter', name: 'OpenRouter', authType: 'api-key', color: '#6d28d9' },
+                { id: 'codex', name: 'ChatGPT Plus/Pro (Codex)', authType: 'device-auth', color: '#10b981' }
             ];
         }
     },
@@ -106,6 +114,14 @@ window.Components.addAccountModal = () => ({
         return 'Enter your API key or token';
     },
 
+    get isCopilotProvider() {
+        return this.currentProvider?.id === 'copilot';
+    },
+
+    get isCodexProvider() {
+        return this.currentProvider?.id === 'codex';
+    },
+
     onProviderChange() {
         // Reset form fields when provider changes
         this.email = '';
@@ -119,6 +135,11 @@ window.Components.addAccountModal = () => ({
         this.copilotFlowId = null;
         this.copilotUserCode = '';
         this.copilotVerificationUri = '';
+        // Stop any active Codex polling
+        this.stopCodexPolling();
+        this.codexFlowId = null;
+        this.codexUserCode = '';
+        this.codexVerificationUri = '';
     },
 
     // ==================== OAuth Methods (Google) ====================
@@ -309,6 +330,106 @@ window.Components.addAccountModal = () => ({
         Alpine.store('global').showToast('Code copied to clipboard', 'success');
     },
 
+    // ==================== Codex Device Auth Methods ====================
+
+    async startCodexDeviceAuth() {
+        const store = Alpine.store('global');
+        this.submitting = true;
+
+        try {
+            const { response, newPassword } = await window.utils.request(
+                '/api/codex/device-auth',
+                { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+                store.webuiPassword
+            );
+            if (newPassword) store.webuiPassword = newPassword;
+
+            const data = await response.json();
+            if (data.status === 'ok') {
+                this.codexFlowId = data.flowId;
+                this.codexUserCode = data.userCode;
+                this.codexVerificationUri = data.verificationUri;
+
+                // Open OpenAI verification page
+                window.open(data.verificationUri, '_blank', 'width=600,height=700,scrollbars=yes');
+
+                store.showToast('Enter the code shown below on OpenAI to authorize', 'info');
+
+                // Start polling for token
+                this.startCodexPolling(data.interval || 5);
+            } else {
+                store.showToast(data.error || 'Failed to start Codex device auth', 'error');
+            }
+        } catch (e) {
+            store.showToast('Codex device auth failed: ' + e.message, 'error');
+        } finally {
+            this.submitting = false;
+        }
+    },
+
+    startCodexPolling(interval) {
+        this.codexPolling = true;
+        const poll = async () => {
+            if (!this.codexPolling || !this.codexFlowId) return;
+
+            try {
+                const store = Alpine.store('global');
+                const { response, newPassword } = await window.utils.request(
+                    '/api/codex/poll-token',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ flowId: this.codexFlowId })
+                    },
+                    store.webuiPassword
+                );
+                if (newPassword) store.webuiPassword = newPassword;
+
+                const data = await response.json();
+
+                if (data.completed) {
+                    this.stopCodexPolling();
+                    store.showToast(`Codex account ${data.email || ''} added successfully!`, 'success');
+                    Alpine.store('data').fetchData();
+                    document.getElementById('add_account_modal').close();
+                    this.resetState();
+                    return;
+                }
+
+                if (data.status === 'error') {
+                    this.stopCodexPolling();
+                    store.showToast(data.error || 'Codex device auth failed', 'error');
+                    return;
+                }
+
+                if (data.interval) {
+                    interval = data.interval;
+                }
+
+                this.codexPollTimer = setTimeout(poll, interval * 1000);
+            } catch (e) {
+                this.stopCodexPolling();
+                Alpine.store('global').showToast('Polling error: ' + e.message, 'error');
+            }
+        };
+
+        this.codexPollTimer = setTimeout(poll, interval * 1000);
+    },
+
+    stopCodexPolling() {
+        this.codexPolling = false;
+        if (this.codexPollTimer) {
+            clearTimeout(this.codexPollTimer);
+            this.codexPollTimer = null;
+        }
+    },
+
+    async copyCodexCode() {
+        if (!this.codexUserCode) return;
+        await navigator.clipboard.writeText(this.codexUserCode);
+        Alpine.store('global').showToast('Code copied to clipboard', 'success');
+    },
+
     // ==================== API Key Methods (Anthropic, OpenAI, GitHub) ==
 
     async addAccountWithProvider() {
@@ -407,6 +528,11 @@ window.Components.addAccountModal = () => ({
         this.copilotFlowId = null;
         this.copilotUserCode = '';
         this.copilotVerificationUri = '';
+        // Stop Codex polling
+        this.stopCodexPolling();
+        this.codexFlowId = null;
+        this.codexUserCode = '';
+        this.codexVerificationUri = '';
         // Close any open details elements
         const details = document.querySelectorAll('#add_account_modal details[open]');
         details.forEach(d => d.removeAttribute('open'));
