@@ -328,6 +328,15 @@ export const PROVIDER_CONFIG = {
         color: '#6d28d9', // Purple
         icon: 'openrouter',
         requiresProjectId: false
+    },
+    codex: {
+        id: 'codex',
+        name: 'ChatGPT Plus/Pro (Codex)',
+        authType: 'device-auth', // OpenAI Device Authorization Flow
+        apiEndpoint: 'https://chatgpt.com/backend-api/codex/responses',
+        color: '#10b981', // Green (OpenAI family)
+        icon: 'openai',
+        requiresProjectId: false
     }
 };
 
@@ -338,7 +347,8 @@ export const PROVIDER_NAMES = {
     openai: 'OpenAI',
     github: 'GitHub Models',
     copilot: 'GitHub Copilot',
-    openrouter: 'OpenRouter'
+    openrouter: 'OpenRouter',
+    codex: 'ChatGPT Plus/Pro (Codex)'
 };
 
 // Provider colors for UI visualization
@@ -348,7 +358,8 @@ export const PROVIDER_COLORS = {
     openai: '#10b981',
     github: '#6366f1',
     copilot: '#f97316',
-    openrouter: '#6d28d9'
+    openrouter: '#6d28d9',
+    codex: '#10b981'
 };
 
 export default {

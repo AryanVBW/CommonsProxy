@@ -6,13 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CommonsProxy is a Node.js proxy server that exposes an Anthropic-compatible API backed by **multiple AI providers**. It enables using various AI models (Claude, Gemini, GPT, etc.) with Claude Code CLI and other Anthropic-compatible clients.
 
-**Supported Providers (v2.0.0+)**:
+**Supported Providers (v2.1.0+)**:
 - 🔵 **Google Cloud Code** - Claude & Gemini models via OAuth 2.0
 - 🟠 **Anthropic** - Direct Claude API access via API key
 - 🟢 **OpenAI** - GPT models via API key (supports Azure OpenAI)
 - 🟣 **GitHub Models** - Access to GitHub's model marketplace via Personal Access Token
 - 🟧 **GitHub Copilot** - Copilot models via GitHub Device Authorization flow
-- 🟣 **OpenRouter** - Unified API for 100+ models via API key
+- � **ChatGPT Plus/Pro (Codex)** - Codex models via OAuth (browser PKCE or device auth)
+- �🟣 **OpenRouter** - Unified API for 100+ models via API key
 
 The proxy translates requests from Anthropic Messages API format to provider-specific formats, then converts responses back to Anthropic format with full thinking/streaming support.
 
@@ -27,8 +28,8 @@ Claude Code CLI → Express Server → Provider Layer → Multiple AI APIs
                                          ↓
                     ┌────────────────────┼────────────────────┐
                     │                    │                    │
-              Google Cloud     Anthropic API     OpenAI API     GitHub Models   GitHub Copilot   OpenRouter
-              (OAuth 2.0)      (API Key)         (API Key)      (PAT)           (Device Auth)    (API Key)
+              Google Cloud     Anthropic API     OpenAI API     GitHub Models   GitHub Copilot   Codex (ChatGPT)   OpenRouter
+              (OAuth 2.0)      (API Key)         (API Key)      (PAT)           (Device Auth)    (OAuth PKCE)      (API Key)
 ```
 
 ### Provider System Components
@@ -43,7 +44,8 @@ Claude Code CLI → Express Server → Provider Layer → Multiple AI APIs
 - **AnthropicProvider** (`anthropic-provider.js`) - API key authentication
 - **OpenAIProvider** (`openai-provider.js`) - API key + custom endpoint support (Azure)
 - **GitHubProvider** (`github-provider.js`) - Personal Access Token
-- **CopilotProvider** (`copilot.js`) - GitHub Device Authorization flow with Copilot token caching
+- **CopilotProvider** (`copilot.js`) - GitHub Device Authorization flow, uses GitHub token directly as Bearer
+- **CodexAuth** (`codex-auth.js`) - ChatGPT Plus/Pro OAuth (browser PKCE + device auth), JWT account ID extraction
 - **OpenRouterProvider** (`openrouter-provider.js`) - API key auth, unified access to 100+ models
 
 **3. Provider Registry** (`src/providers/index.js`)
@@ -57,7 +59,7 @@ Each account in `accounts.json` now includes:
 ```json
 {
   "email": "user@example.com",
-  "provider": "google|anthropic|openai|github",
+  "provider": "google|anthropic|openai|github|copilot|codex|openrouter",
   "source": "oauth|manual",
   "enabled": true,
   
@@ -85,6 +87,9 @@ UI components use consistent color coding:
 | Anthropic | `#d97706` | `bg-orange-600` | Orange |
 | OpenAI | `#10b981` | `bg-green-500` | Green |
 | GitHub Models | `#6366f1` | `bg-indigo-500` | Indigo |
+| GitHub Copilot | `#f97316` | `bg-orange-500` | Orange |
+| ChatGPT Plus/Pro | `#10b981` | `bg-green-500` | Green |
+| OpenRouter | `#6d28d9` | `bg-purple-600` | Purple |
 
 ### Backward Compatibility
 

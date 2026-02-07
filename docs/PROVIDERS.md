@@ -8,6 +8,9 @@ Complete step-by-step instructions for adding accounts from each supported provi
 - [Anthropic](#anthropic)
 - [OpenAI](#openai)
 - [GitHub Models](#github-models)
+- [GitHub Copilot](#github-copilot)
+- [ChatGPT Plus/Pro (Codex)](#chatgpt-pluspro-codex)
+- [OpenRouter](#6-openrouter)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -449,12 +452,15 @@ commons-proxy accounts add --provider=copilot
 | Model ID | Display Name | Context Window | Features |
 |----------|-------------|----------------|----------|
 | `gpt-4o` | GPT-4o | 128K | Vision |
+| `gpt-4o-mini` | GPT-4o Mini | 128K | Vision |
 | `gpt-4` | GPT-4 | 8K | - |
 | `gpt-4-turbo` | GPT-4 Turbo | 128K | Vision |
-| `gpt-3.5-turbo` | GPT-3.5 Turbo | 16K | - |
-| `claude-3.5-sonnet` | Claude 3.5 Sonnet | 200K | Thinking, Vision |
+| `claude-sonnet-4` | Claude Sonnet 4 | 200K | Thinking, Vision |
+| `claude-3.5-sonnet` | Claude 3.5 Sonnet | 200K | Vision |
+| `claude-haiku-3.5` | Claude Haiku 3.5 | 200K | Vision |
 | `o1-preview` | o1 Preview | 128K | Reasoning |
 | `o1-mini` | o1 Mini | 128K | Reasoning |
+| `o3-mini` | o3 Mini | 128K | Reasoning |
 
 ### Rate Limits
 GitHub Copilot has rate limits that vary by subscription tier:
@@ -465,8 +471,8 @@ GitHub Copilot has rate limits that vary by subscription tier:
 1. CommonsProxy initiates a GitHub Device Authorization flow
 2. You authorize on GitHub's website with a one-time code
 3. CommonsProxy receives a GitHub OAuth token
-4. The token is exchanged for a short-lived Copilot API token (~30 min)
-5. Copilot tokens are automatically refreshed as needed
+4. The GitHub token is used directly as Bearer auth for Copilot API requests
+5. Copilot-specific headers (`Openai-Intent`, `x-initiator`) are added automatically
 
 ### Troubleshooting
 
@@ -481,6 +487,79 @@ GitHub Copilot has rate limits that vary by subscription tier:
 **"Failed to get Copilot token"**
 - Your GitHub token may have expired
 - Remove and re-add the account
+
+---
+
+## ChatGPT Plus/Pro (Codex)
+
+### Overview
+
+Access OpenAI Codex models using your ChatGPT Plus or Pro subscription via OAuth.
+
+**Authentication**: OAuth (Browser PKCE or Device Authorization)  
+**Cost**: Requires active ChatGPT Plus ($20/month) or Pro ($200/month) subscription  
+**Quota Tracking**: ⚠️ Subscription-based limits
+
+> **Credits**: Authentication flow inspired by [opencode](https://github.com/nichochar/opencode)'s `codex.ts` plugin.
+
+### Prerequisites
+
+- Active **ChatGPT Plus** or **ChatGPT Pro** subscription
+- No API key needed — uses OAuth authorization
+
+### Setup
+
+#### Method 1: WebUI Browser Auth (Recommended)
+1. Open CommonsProxy WebUI at `http://localhost:8080`
+2. Go to **Accounts** → **Add Account**
+3. Select **ChatGPT Plus/Pro (Codex)** from the provider dropdown
+4. Click **Connect via Browser**
+5. A browser window opens to OpenAI's authorization page
+6. Sign in with your ChatGPT account and authorize
+7. Account is automatically added once authorized
+
+#### Method 2: WebUI Device Auth (Headless/SSH)
+1. Open CommonsProxy WebUI at `http://localhost:8080`
+2. Go to **Accounts** → **Add Account**
+3. Select **ChatGPT Plus/Pro (Codex)**
+4. Click **Connect via Device Code**
+5. Open `https://auth.openai.com/codex/device` in any browser
+6. Enter the **user code** shown in the modal
+7. Authorize the application
+8. Account is automatically added once authorized
+
+### Available Models
+
+Models available depend on your subscription tier:
+
+| Model ID | Display Name | Subscription | Features |
+|----------|-------------|-------------|----------|
+| `codex-mini` | Codex Mini | Plus/Pro | Fast coding |
+| `o4-mini` | o4 Mini | Plus/Pro | Reasoning |
+| `o3` | o3 | Pro | Advanced reasoning |
+
+### How It Works
+1. CommonsProxy initiates an OAuth flow (browser PKCE or device authorization)
+2. You sign in with your ChatGPT account and authorize
+3. CommonsProxy receives OAuth tokens (access + refresh)
+4. Your ChatGPT Account ID is extracted from the JWT token
+5. Requests are sent to the Codex API with proper `ChatGPT-Account-Id` header
+6. Tokens are automatically refreshed when they expire
+
+### Troubleshooting
+
+**"Authorization failed"**
+- Ensure you have an active ChatGPT Plus or Pro subscription
+- Try using the device auth method if browser auth fails
+
+**"Token refresh failed"**
+- Your subscription may have expired
+- Remove and re-add the account
+
+**Port 1455 in use**
+- Browser auth uses port 1455 for the OAuth callback
+- Ensure no other application is using this port
+- Use device auth as an alternative
 
 ---
 

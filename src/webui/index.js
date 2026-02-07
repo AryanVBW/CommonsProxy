@@ -24,6 +24,8 @@ import { logger } from '../utils/logger.js';
 import { getAuthorizationUrl, completeOAuthFlow, startCallbackServer } from '../auth/oauth.js';
 import { loadAccounts, saveAccounts } from '../account-manager/storage.js';
 import { getAllAuthProviders, getAuthProvider } from '../providers/index.js';
+import { COPILOT_CONFIG } from '../providers/copilot.js';
+import { initiateCodexDeviceAuth, pollCodexDeviceAuth, startCodexBrowserAuth, CODEX_CONFIG } from '../providers/codex-auth.js';
 
 // Get package version
 const __filename = fileURLToPath(import.meta.url);
@@ -449,8 +451,8 @@ export function mountWebUI(app, dirname, accountManager) {
                 return res.status(400).json({ status: 'error', error: 'provider is required' });
             }
 
-            // For non-Google, non-Copilot providers, API key is required
-            if (provider !== 'google' && provider !== 'copilot' && !apiKey) {
+            // For non-Google, non-Copilot, non-Codex providers, API key is required
+            if (provider !== 'google' && provider !== 'copilot' && provider !== 'codex' && !apiKey) {
                 return res.status(400).json({ status: 'error', error: 'apiKey is required for this provider' });
             }
 
@@ -547,7 +549,7 @@ export function mountWebUI(app, dirname, accountManager) {
                     'User-Agent': 'commons-proxy/2.0.0'
                 },
                 body: JSON.stringify({
-                    client_id: 'Iv1.b507a08c87ecfe98',
+                    client_id: COPILOT_CONFIG.clientId,
                     device_code: flow.deviceCode,
                     grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
                 })
@@ -593,6 +595,161 @@ export function mountWebUI(app, dirname, accountManager) {
             }
         } catch (error) {
             logger.error('[WebUI] Copilot poll token error:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    // ==========================================
+    // OpenAI Codex Auth API (ChatGPT Plus/Pro)
+    // Inspired by opencode's codex.ts plugin
+    // ==========================================
+
+    // Pending Codex device auth flows
+    const pendingCodexFlows = new Map();
+
+    /**
+     * POST /api/codex/device-auth - Initiate Codex headless device authorization
+     */
+    app.post('/api/codex/device-auth', async (req, res) => {
+        try {
+            const deviceData = await initiateCodexDeviceAuth();
+
+            const flowId = crypto.randomUUID();
+            pendingCodexFlows.set(flowId, {
+                deviceAuthId: deviceData.deviceAuthId,
+                userCode: deviceData.userCode,
+                interval: deviceData.interval,
+                timestamp: Date.now()
+            });
+
+            // Clean up old flows (> 10 mins)
+            const now = Date.now();
+            for (const [key, val] of pendingCodexFlows.entries()) {
+                if (now - val.timestamp > 10 * 60 * 1000) {
+                    pendingCodexFlows.delete(key);
+                }
+            }
+
+            res.json({
+                status: 'ok',
+                flowId,
+                verificationUri: deviceData.verificationUri,
+                userCode: deviceData.userCode,
+                interval: deviceData.interval
+            });
+        } catch (error) {
+            logger.error('[WebUI] Codex device auth error:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    /**
+     * POST /api/codex/poll-token - Poll for Codex token after user authorizes
+     */
+    app.post('/api/codex/poll-token', async (req, res) => {
+        try {
+            const { flowId } = req.body;
+            if (!flowId) {
+                return res.status(400).json({ status: 'error', error: 'flowId is required' });
+            }
+
+            const flow = pendingCodexFlows.get(flowId);
+            if (!flow) {
+                return res.status(400).json({ status: 'error', error: 'Flow not found or expired' });
+            }
+
+            const result = await pollCodexDeviceAuth(flow.deviceAuthId, flow.userCode);
+
+            if (result.completed && result.tokens) {
+                const email = `codex-${result.tokens.accountId || 'user'}@chatgpt`;
+
+                await addAccount({
+                    email,
+                    provider: 'codex',
+                    source: 'oauth',
+                    refreshToken: result.tokens.refreshToken,
+                    apiKey: result.tokens.accessToken,
+                    accountId: result.tokens.accountId
+                });
+
+                await accountManager.reload();
+                pendingCodexFlows.delete(flowId);
+
+                logger.success(`[WebUI] Codex account ${email} added via device auth`);
+
+                res.json({
+                    status: 'ok',
+                    completed: true,
+                    email,
+                    message: `Account ${email} added successfully`
+                });
+            } else if (result.pending) {
+                res.json({ status: 'ok', completed: false, pending: true });
+            } else if (result.error) {
+                pendingCodexFlows.delete(flowId);
+                res.json({ status: 'error', error: result.error });
+            } else {
+                res.json({ status: 'ok', completed: false, pending: true });
+            }
+        } catch (error) {
+            logger.error('[WebUI] Codex poll token error:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    /**
+     * POST /api/codex/browser-auth - Initiate Codex browser OAuth (PKCE)
+     */
+    app.post('/api/codex/browser-auth', async (req, res) => {
+        try {
+            const { url, promise, abort } = await startCodexBrowserAuth();
+
+            const flowId = crypto.randomUUID();
+            pendingCodexFlows.set(flowId, {
+                type: 'browser',
+                promise,
+                abort,
+                timestamp: Date.now()
+            });
+
+            // Handle async completion
+            promise
+                .then(async (tokens) => {
+                    try {
+                        const email = `codex-${tokens.accountId || 'user'}@chatgpt`;
+
+                        await addAccount({
+                            email,
+                            provider: 'codex',
+                            source: 'oauth',
+                            refreshToken: tokens.refreshToken,
+                            apiKey: tokens.accessToken,
+                            accountId: tokens.accountId
+                        });
+
+                        await accountManager.reload();
+                        logger.success(`[WebUI] Codex account ${email} added via browser auth`);
+                    } catch (err) {
+                        logger.error('[WebUI] Codex browser auth completion error:', err);
+                    } finally {
+                        pendingCodexFlows.delete(flowId);
+                    }
+                })
+                .catch((err) => {
+                    if (!err.message?.includes('aborted')) {
+                        logger.error('[WebUI] Codex browser auth error:', err);
+                    }
+                    pendingCodexFlows.delete(flowId);
+                });
+
+            res.json({
+                status: 'ok',
+                flowId,
+                url,
+                message: 'Open the URL in your browser to authorize'
+            });
+        } catch (error) {
+            logger.error('[WebUI] Codex browser auth error:', error);
             res.status(500).json({ status: 'error', error: error.message });
         }
     });

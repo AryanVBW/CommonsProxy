@@ -5,6 +5,40 @@ All notable changes to CommonsProxy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-07
+
+### Added
+
+**GitHub Copilot Auth Improvements**
+- Updated Copilot OAuth client ID to match opencode's newer app (`Ov23li8tweQw6odWQebz`)
+- Added `buildCopilotHeaders()` helper with proper headers (`Openai-Intent`, `x-initiator`, `Copilot-Vision-Request`)
+- Added GitHub Enterprise domain support for device auth
+- Enhanced device auth polling with RFC 8628 `slow_down` compliance
+- Updated Copilot model list (added Claude Sonnet 4, Claude Haiku 3.5, o3-mini, GPT-4o Mini)
+
+**ChatGPT Plus/Pro (Codex) Provider** — *New*
+- OAuth authentication via browser PKCE flow (port 1455) or headless device authorization
+- Token refresh support with automatic re-authentication
+- JWT-based ChatGPT Account ID extraction
+- WebUI endpoints: `/api/codex/device-auth`, `/api/codex/poll-token`, `/api/codex/browser-auth`
+- Provider configuration in constants (`codex` provider type)
+
+**Documentation**
+- Added ChatGPT Plus/Pro (Codex) section to `docs/PROVIDERS.md`
+- Added credits section in README acknowledging opencode project
+- Updated architecture diagram to include Codex provider
+
+### Changed
+- Copilot auth now uses GitHub token directly as Bearer (matching opencode's approach) instead of exchanging for a separate Copilot internal token
+- Removed dead `_getCopilotToken()` method and `copilotTokenCache`
+- Fixed hardcoded old Copilot client ID in CLI accounts and WebUI
+- Updated `getAllAuthProviders()` to recognize `codex` as device-auth type
+
+### Credits
+- Authentication flows inspired by [opencode](https://github.com/nichochar/opencode)'s `copilot.ts` and `codex.ts` plugins
+
+---
+
 ## [2.0.0] - 2026-02-05
 
 ### 🎉 Major Release: Multi-Provider Support

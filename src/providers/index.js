@@ -128,10 +128,11 @@ export function registerAuthProvider(id, provider) {
  * @returns {Array<{id: string, name: string, authType: string}>} Provider list
  */
 export function getAllAuthProviders() {
+    const deviceAuthProviders = new Set(['copilot', 'codex']);
     return Array.from(authProviders.entries()).map(([id, provider]) => ({
         id,
         name: provider.name,
-        authType: id === 'google' ? 'oauth' : (id === 'copilot' ? 'device-auth' : 'api-key')
+        authType: id === 'google' ? 'oauth' : (deviceAuthProviders.has(id) ? 'device-auth' : 'api-key')
     }));
 }
 

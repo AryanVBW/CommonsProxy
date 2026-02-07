@@ -21,6 +21,7 @@ import { dirname } from 'path';
 import { spawn } from 'child_process';
 import net from 'net';
 import { ACCOUNT_CONFIG_PATH, DEFAULT_PORT, MAX_ACCOUNTS } from '../constants.js';
+import { COPILOT_CONFIG } from '../providers/copilot.js';
 import {
     getAuthorizationUrl,
     startCallbackServer,
@@ -511,7 +512,7 @@ async function addCopilotAccount(rl) {
                         'User-Agent': 'commons-proxy/2.0.0'
                     },
                     body: JSON.stringify({
-                        client_id: 'Iv1.b507a08c87ecfe98',
+                        client_id: COPILOT_CONFIG.clientId,
                         device_code: deviceData.device_code,
                         grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
                     })

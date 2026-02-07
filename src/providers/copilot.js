@@ -11,15 +11,16 @@
 import BaseProvider from './base-provider.js';
 
 // GitHub Copilot OAuth configuration
-const COPILOT_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
+// Client ID from opencode's copilot plugin (newer OAuth app)
+const COPILOT_CLIENT_ID = 'Ov23li8tweQw6odWQebz';
 const COPILOT_DEVICE_CODE_URL = 'https://github.com/login/device/code';
 const COPILOT_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const COPILOT_API_URL = 'https://api.githubcopilot.com';
 const COPILOT_TOKEN_URL = 'https://api.github.com/copilot_internal/v2/token';
 
-// In-memory cache for short-lived Copilot API tokens
-// Maps GitHub access token -> { token, expiresAt }
-const copilotTokenCache = new Map();
+// Polling safety margin to avoid hitting the server too early (from opencode)
+const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000;
+
 
 export class CopilotProvider extends BaseProvider {
     constructor(config = {}) {
@@ -63,16 +64,6 @@ export class CopilotProvider extends BaseProvider {
 
             const userData = await userResponse.json();
 
-            // Try to get a Copilot token to verify Copilot access
-            try {
-                await this._getCopilotToken(account.apiKey);
-            } catch (copilotError) {
-                return {
-                    valid: false,
-                    error: `GitHub token valid but Copilot access denied: ${copilotError.message}. Ensure you have an active GitHub Copilot subscription.`
-                };
-            }
-
             const email = userData.email || `${userData.login}@github`;
             return { valid: true, email };
         } catch (error) {
@@ -82,60 +73,21 @@ export class CopilotProvider extends BaseProvider {
     }
 
     /**
-     * Get Copilot API token from the stored GitHub access token.
-     * Copilot tokens are short-lived (~30 min), so we cache and refresh.
+     * Get access token for Copilot API requests.
+     * Following opencode's approach: use the GitHub OAuth token directly
+     * as Bearer auth with proper Copilot headers.
      *
      * @param {Object} account - Account with apiKey (GitHub access token)
-     * @returns {Promise<string>} Copilot API token
+     * @returns {Promise<string>} GitHub access token (used directly as Bearer)
      */
     async getAccessToken(account) {
         if (!account.apiKey) {
             throw new Error('Account missing GitHub access token');
         }
 
-        const copilotToken = await this._getCopilotToken(account.apiKey);
-        return copilotToken;
-    }
-
-    /**
-     * Internal: Get or refresh Copilot API token
-     *
-     * @param {string} githubToken - GitHub OAuth access token
-     * @returns {Promise<string>} Copilot API token
-     */
-    async _getCopilotToken(githubToken) {
-        // Check cache
-        const cached = copilotTokenCache.get(githubToken);
-        if (cached && cached.expiresAt > Date.now() + 60000) {
-            // Return cached token if it has > 1 minute left
-            return cached.token;
-        }
-
-        const response = await fetch(this.config.tokenUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${githubToken}`,
-                'User-Agent': 'commons-proxy/2.0.0',
-                'Accept': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`Failed to get Copilot token: ${response.status} ${text}`);
-        }
-
-        const data = await response.json();
-        const expiresAt = data.expires_at
-            ? new Date(data.expires_at * 1000).getTime()
-            : Date.now() + 30 * 60 * 1000; // Default 30 min
-
-        copilotTokenCache.set(githubToken, {
-            token: data.token,
-            expiresAt
-        });
-
-        return data.token;
+        // opencode uses the GitHub token directly as Bearer auth
+        // with Copilot-specific headers, no separate token exchange needed
+        return account.apiKey;
     }
 
     /**
@@ -201,6 +153,7 @@ export class CopilotProvider extends BaseProvider {
 
     /**
      * Get available models from Copilot
+     * Updated model list to match current Copilot offerings (aligned with opencode)
      *
      * @param {Object} account - Account object
      * @param {string} token - Copilot API token
@@ -209,12 +162,15 @@ export class CopilotProvider extends BaseProvider {
     async getAvailableModels(account, token) {
         return [
             { id: 'gpt-4o', name: 'GPT-4o', family: 'gpt' },
+            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', family: 'gpt' },
             { id: 'gpt-4', name: 'GPT-4', family: 'gpt' },
             { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', family: 'gpt' },
-            { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', family: 'gpt' },
+            { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', family: 'claude' },
             { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', family: 'claude' },
+            { id: 'claude-haiku-3.5', name: 'Claude Haiku 3.5', family: 'claude' },
             { id: 'o1-preview', name: 'o1 Preview', family: 'o1' },
-            { id: 'o1-mini', name: 'o1 Mini', family: 'o1' }
+            { id: 'o1-mini', name: 'o1 Mini', family: 'o1' },
+            { id: 'o3-mini', name: 'o3 Mini', family: 'o3' }
         ];
     }
 
@@ -273,10 +229,13 @@ export class CopilotProvider extends BaseProvider {
 
     /**
      * Initiate device authorization flow
+     * Uses the same flow as opencode's copilot plugin
+     * @param {string} [domain='github.com'] - GitHub domain (for Enterprise support)
      * @returns {Promise<Object>} Device code response with verification_uri and user_code
      */
-    static async initiateDeviceAuth() {
-        const response = await fetch(COPILOT_DEVICE_CODE_URL, {
+    static async initiateDeviceAuth(domain = 'github.com') {
+        const deviceCodeUrl = `https://${domain}/login/device/code`;
+        const response = await fetch(deviceCodeUrl, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -299,22 +258,24 @@ export class CopilotProvider extends BaseProvider {
 
     /**
      * Poll for access token after user completes device auth
+     * Matches opencode's polling logic with proper slow_down handling per RFC 8628
      * @param {string} deviceCode - Device code from initiateDeviceAuth
      * @param {number} interval - Polling interval in seconds
      * @param {AbortSignal} [signal] - Optional abort signal
+     * @param {string} [domain='github.com'] - GitHub domain (for Enterprise support)
      * @returns {Promise<Object>} { accessToken, tokenType }
      */
-    static async pollForToken(deviceCode, interval = 5, signal = null) {
-        const maxAttempts = 60; // 5 minutes max
+    static async pollForToken(deviceCode, interval = 5, signal = null, domain = 'github.com') {
+        const accessTokenUrl = `https://${domain}/login/oauth/access_token`;
 
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        while (true) {
             if (signal?.aborted) {
                 throw new Error('Device auth polling aborted');
             }
 
-            await new Promise(resolve => setTimeout(resolve, interval * 1000));
+            await new Promise(resolve => setTimeout(resolve, interval * 1000 + OAUTH_POLLING_SAFETY_MARGIN_MS));
 
-            const response = await fetch(COPILOT_ACCESS_TOKEN_URL, {
+            const response = await fetch(accessTokenUrl, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -329,7 +290,7 @@ export class CopilotProvider extends BaseProvider {
             });
 
             if (!response.ok) {
-                continue;
+                return { accessToken: null, error: 'failed' };
             }
 
             const data = await response.json();
@@ -346,16 +307,23 @@ export class CopilotProvider extends BaseProvider {
             }
 
             if (data.error === 'slow_down') {
+                // Per RFC 8628 section 3.5: add 5 seconds to current polling interval
                 interval += 5;
+                // Use server-provided interval if available
+                if (data.interval && typeof data.interval === 'number' && data.interval > 0) {
+                    interval = data.interval;
+                }
                 continue;
+            }
+
+            if (data.error === 'expired_token') {
+                throw new Error('Device code expired. Please try again.');
             }
 
             if (data.error) {
                 throw new Error(`OAuth error: ${data.error_description || data.error}`);
             }
         }
-
-        throw new Error('Authorization timed out after 5 minutes');
     }
 
     /**
@@ -384,6 +352,31 @@ export class CopilotProvider extends BaseProvider {
             email: data.email || `${data.login}@github`,
             name: data.name || data.login
         };
+    }
+
+    /**
+     * Build request headers for Copilot API calls.
+     * Matches opencode's copilot plugin header format.
+     *
+     * @param {string} githubToken - GitHub OAuth access token
+     * @param {Object} [options] - Additional options
+     * @param {boolean} [options.isAgent=false] - Whether this is an agent-initiated request
+     * @param {boolean} [options.isVision=false] - Whether this request contains vision content
+     * @returns {Object} Headers object
+     */
+    static buildCopilotHeaders(githubToken, options = {}) {
+        const headers = {
+            'Authorization': `Bearer ${githubToken}`,
+            'User-Agent': 'commons-proxy/2.0.0',
+            'Openai-Intent': 'conversation-edits',
+            'x-initiator': options.isAgent ? 'agent' : 'user'
+        };
+
+        if (options.isVision) {
+            headers['Copilot-Vision-Request'] = 'true';
+        }
+
+        return headers;
     }
 }
 
