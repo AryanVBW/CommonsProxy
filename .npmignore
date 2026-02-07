@@ -13,9 +13,22 @@ docs/
 # Exclude dev files
 .env*
 .claude/
+.opencode/
+opencode/
 .vscode/
 .idea/
+.windsurf/
+
+# Exclude build config (CSS is pre-built)
+postcss.config.js
+tailwind.config.js
+public/css/src/
 
 # Exclude misc
 *.log
 .DS_Store
+images/
+docker-compose.yml
+Dockerfile
+.dockerignore
+config.example.json

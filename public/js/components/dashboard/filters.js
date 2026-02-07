@@ -253,7 +253,7 @@ window.DashboardFilters.getFamilyColor = function(family) {
  */
 window.DashboardFilters.getModelColor = function(family, modelIndex) {
     const MODEL_COLORS = window.DashboardConstants?.MODEL_COLORS || [];
-    const baseIndex = family === 'claude' ? 0 : (family === 'gemini' ? 4 : 8);
+    const baseIndex = family === 'claude' ? 0 : (family === 'gemini' ? 4 : (family === 'gpt' ? 8 : (family === 'o1' ? 12 : 8)));
     return MODEL_COLORS[(baseIndex + modelIndex) % MODEL_COLORS.length];
 };
 

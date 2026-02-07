@@ -310,6 +310,24 @@ export const PROVIDER_CONFIG = {
         color: '#6366f1', // Indigo
         icon: 'github',
         requiresProjectId: false
+    },
+    copilot: {
+        id: 'copilot',
+        name: 'GitHub Copilot',
+        authType: 'device-auth', // GitHub Device Authorization Flow
+        apiEndpoint: 'https://api.githubcopilot.com',
+        color: '#f97316', // Orange
+        icon: 'copilot',
+        requiresProjectId: false
+    },
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        authType: 'api-key',
+        apiEndpoint: 'https://openrouter.ai/api/v1',
+        color: '#6d28d9', // Purple
+        icon: 'openrouter',
+        requiresProjectId: false
     }
 };
 
@@ -318,7 +336,9 @@ export const PROVIDER_NAMES = {
     google: 'Google Cloud Code',
     anthropic: 'Anthropic',
     openai: 'OpenAI',
-    github: 'GitHub Models'
+    github: 'GitHub Models',
+    copilot: 'GitHub Copilot',
+    openrouter: 'OpenRouter'
 };
 
 // Provider colors for UI visualization
@@ -326,7 +346,9 @@ export const PROVIDER_COLORS = {
     google: '#4285f4',
     anthropic: '#d97706',
     openai: '#10b981',
-    github: '#6366f1'
+    github: '#6366f1',
+    copilot: '#f97316',
+    openrouter: '#6d28d9'
 };
 
 export default {

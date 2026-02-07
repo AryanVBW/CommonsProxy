@@ -11,6 +11,8 @@ CommonsProxy is a Node.js proxy server that exposes an Anthropic-compatible API 
 - 🟠 **Anthropic** - Direct Claude API access via API key
 - 🟢 **OpenAI** - GPT models via API key (supports Azure OpenAI)
 - 🟣 **GitHub Models** - Access to GitHub's model marketplace via Personal Access Token
+- 🟧 **GitHub Copilot** - Copilot models via GitHub Device Authorization flow
+- 🟣 **OpenRouter** - Unified API for 100+ models via API key
 
 The proxy translates requests from Anthropic Messages API format to provider-specific formats, then converts responses back to Anthropic format with full thinking/streaming support.
 
@@ -25,8 +27,8 @@ Claude Code CLI → Express Server → Provider Layer → Multiple AI APIs
                                          ↓
                     ┌────────────────────┼────────────────────┐
                     │                    │                    │
-              Google Cloud        Anthropic API         OpenAI API      GitHub Models
-              (OAuth 2.0)         (API Key)            (API Key)        (PAT)
+              Google Cloud     Anthropic API     OpenAI API     GitHub Models   GitHub Copilot   OpenRouter
+              (OAuth 2.0)      (API Key)         (API Key)      (PAT)           (Device Auth)    (API Key)
 ```
 
 ### Provider System Components
@@ -41,6 +43,8 @@ Claude Code CLI → Express Server → Provider Layer → Multiple AI APIs
 - **AnthropicProvider** (`anthropic-provider.js`) - API key authentication
 - **OpenAIProvider** (`openai-provider.js`) - API key + custom endpoint support (Azure)
 - **GitHubProvider** (`github-provider.js`) - Personal Access Token
+- **CopilotProvider** (`copilot.js`) - GitHub Device Authorization flow with Copilot token caching
+- **OpenRouterProvider** (`openrouter-provider.js`) - API key auth, unified access to 100+ models
 
 **3. Provider Registry** (`src/providers/index.js`)
 - Factory pattern for provider instantiation

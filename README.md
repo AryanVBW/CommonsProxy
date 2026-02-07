@@ -7,9 +7,9 @@
 
 <a href="https://buymeacoffee.com/badrinarayanans" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
-A **universal AI proxy server** exposing an **Anthropic-compatible API** backed by **multiple providers** (Google Cloud Code, Anthropic, OpenAI, GitHub Models), enabling you to use Claude, Gemini, GPT, and more with **Claude Code CLI**.
+A **universal AI proxy server** exposing an **Anthropic-compatible API** backed by **multiple providers** (Google Cloud Code, Anthropic, OpenAI, GitHub Models, GitHub Copilot, OpenRouter), enabling you to use Claude, Gemini, GPT, and more with **Claude Code CLI**.
 
-> 🎉 **v2.0.0 Released**: Now supporting Anthropic, OpenAI, and GitHub Models in addition to Google Cloud Code!
+> 🎉 **v2.0.0 Released**: Now supporting Anthropic, OpenAI, GitHub Models, GitHub Copilot, and OpenRouter in addition to Google Cloud Code!
 
 📚 **Quick Links**: [Installation](#installation) | [Provider Setup](docs/PROVIDERS.md) | [Docker](#option-3-docker-recommended-for-production) | [Contributing](CONTRIBUTING.md)
 
@@ -22,6 +22,8 @@ A **universal AI proxy server** exposing an **Anthropic-compatible API** backed 
 │    API format)   │     │                     │     │  • Anthropic API        │
 └──────────────────┘     └─────────────────────┘     │  • OpenAI API           │
                                                       │  • GitHub Models        │
+                                                      │  • GitHub Copilot       │
+                                                      │  • OpenRouter            │
                                                       └─────────────────────────┘
 ```
 
@@ -33,8 +35,8 @@ A **universal AI proxy server** exposing an **Anthropic-compatible API** backed 
 5. Converts response back to **Anthropic format** with full streaming and thinking support
 
 **Key Features**:
-- 🔄 **Multi-Provider Support**: Use Google, Anthropic, OpenAI, and GitHub accounts
-- 🔐 **Flexible Authentication**: OAuth 2.0 (Google) or API Keys (others)
+- 🔄 **Multi-Provider Support**: Use Google, Anthropic, OpenAI, GitHub Models, GitHub Copilot, and OpenRouter accounts
+- 🔐 **Flexible Authentication**: OAuth 2.0 (Google), Device Auth (Copilot), or API Keys (others)
 - ⚖️ **Intelligent Load Balancing**: Hybrid/Sticky/Round-Robin strategies
 - 📊 **Real-time Quota Tracking**: Dashboard shows usage across all providers
 - 💾 **Prompt Caching**: Maintains cache continuity with sticky account selection
@@ -48,6 +50,8 @@ A **universal AI proxy server** exposing an **Anthropic-compatible API** backed 
 | **Anthropic** | API Key | Claude 3.5 Sonnet/Opus/Haiku | ⚠️ Manual (console) | ✅ Supported |
 | **OpenAI** | API Key | GPT-4 Turbo, GPT-4, GPT-3.5 Turbo | ⚠️ Manual (console) | ✅ Supported |
 | **GitHub Models** | Personal Access Token | GitHub Marketplace models | ⚠️ GitHub API limits | ✅ Supported |
+| **GitHub Copilot** | Device Authorization | GPT-4o, GPT-4, Claude 3.5 Sonnet, o1 | ⚠️ Copilot limits | ✅ Supported |
+| **OpenRouter** | API Key | 100+ models (Claude, GPT, Gemini, Llama, etc.) | ✅ Credit-based | ✅ Supported |
 
 **Quota Tracking Legend**:
 - ✅ **Real-time via API**: CommonsProxy automatically fetches and displays quota in WebUI

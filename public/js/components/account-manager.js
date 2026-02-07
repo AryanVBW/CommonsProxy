@@ -47,7 +47,9 @@ window.Components.accountManager = () => ({
             google: 'Google',
             anthropic: 'Anthropic',
             openai: 'OpenAI',
-            github: 'GitHub'
+            github: 'GitHub',
+            copilot: 'Copilot',
+            openrouter: 'OpenRouter'
         };
         return names[provider] || provider.toUpperCase();
     },
@@ -58,7 +60,9 @@ window.Components.accountManager = () => ({
             google: '#4285f4',
             anthropic: '#d97706',
             openai: '#10b981',
-            github: '#6366f1'
+            github: '#6366f1',
+            copilot: '#f97316',
+            openrouter: '#6d28d9'
         };
         return colors[provider] || '#4285f4';
     },

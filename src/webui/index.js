@@ -13,6 +13,7 @@
  */
 
 import path from 'path';
+import crypto from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -448,8 +449,8 @@ export function mountWebUI(app, dirname, accountManager) {
                 return res.status(400).json({ status: 'error', error: 'provider is required' });
             }
 
-            // For non-Google providers, API key is required
-            if (provider !== 'google' && !apiKey) {
+            // For non-Google, non-Copilot providers, API key is required
+            if (provider !== 'google' && provider !== 'copilot' && !apiKey) {
                 return res.status(400).json({ status: 'error', error: 'apiKey is required for this provider' });
             }
 
@@ -471,6 +472,127 @@ export function mountWebUI(app, dirname, accountManager) {
             });
         } catch (error) {
             logger.error('[WebUI] Error adding account:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    // ==========================================
+    // GitHub Copilot Device Auth API
+    // ==========================================
+
+    // Pending Copilot device auth flows
+    const pendingCopilotFlows = new Map();
+
+    /**
+     * POST /api/copilot/device-auth - Initiate Copilot device authorization
+     */
+    app.post('/api/copilot/device-auth', async (req, res) => {
+        try {
+            const { CopilotProvider } = await import('../providers/copilot.js');
+            const deviceData = await CopilotProvider.initiateDeviceAuth();
+
+            // Store the flow
+            const flowId = crypto.randomUUID();
+            pendingCopilotFlows.set(flowId, {
+                deviceCode: deviceData.device_code,
+                interval: deviceData.interval || 5,
+                timestamp: Date.now()
+            });
+
+            // Clean up old flows (> 10 mins)
+            const now = Date.now();
+            for (const [key, val] of pendingCopilotFlows.entries()) {
+                if (now - val.timestamp > 10 * 60 * 1000) {
+                    pendingCopilotFlows.delete(key);
+                }
+            }
+
+            res.json({
+                status: 'ok',
+                flowId,
+                verificationUri: deviceData.verification_uri,
+                userCode: deviceData.user_code,
+                expiresIn: deviceData.expires_in,
+                interval: deviceData.interval || 5
+            });
+        } catch (error) {
+            logger.error('[WebUI] Copilot device auth error:', error);
+            res.status(500).json({ status: 'error', error: error.message });
+        }
+    });
+
+    /**
+     * POST /api/copilot/poll-token - Poll for Copilot token after user authorizes
+     */
+    app.post('/api/copilot/poll-token', async (req, res) => {
+        try {
+            const { flowId } = req.body;
+            if (!flowId) {
+                return res.status(400).json({ status: 'error', error: 'flowId is required' });
+            }
+
+            const flow = pendingCopilotFlows.get(flowId);
+            if (!flow) {
+                return res.status(400).json({ status: 'error', error: 'Flow not found or expired' });
+            }
+
+            const { CopilotProvider } = await import('../providers/copilot.js');
+
+            // Single poll attempt (client will retry)
+            const response = await fetch('https://github.com/login/oauth/access_token', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'commons-proxy/2.0.0'
+                },
+                body: JSON.stringify({
+                    client_id: 'Iv1.b507a08c87ecfe98',
+                    device_code: flow.deviceCode,
+                    grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.access_token) {
+                // Got the token! Get user info and add account
+                const userInfo = await CopilotProvider.getUserInfo(data.access_token);
+
+                await addAccount({
+                    email: userInfo.email,
+                    provider: 'copilot',
+                    source: 'manual',
+                    apiKey: data.access_token
+                });
+
+                await accountManager.reload();
+                pendingCopilotFlows.delete(flowId);
+
+                logger.success(`[WebUI] Copilot account ${userInfo.email} added via device auth`);
+
+                res.json({
+                    status: 'ok',
+                    completed: true,
+                    email: userInfo.email,
+                    message: `Account ${userInfo.email} added successfully`
+                });
+            } else if (data.error === 'authorization_pending') {
+                res.json({ status: 'ok', completed: false, pending: true });
+            } else if (data.error === 'slow_down') {
+                flow.interval = (flow.interval || 5) + 5;
+                res.json({ status: 'ok', completed: false, pending: true, interval: flow.interval });
+            } else if (data.error === 'expired_token') {
+                pendingCopilotFlows.delete(flowId);
+                res.json({ status: 'error', error: 'Device code expired. Please try again.' });
+            } else if (data.error) {
+                pendingCopilotFlows.delete(flowId);
+                res.json({ status: 'error', error: data.error_description || data.error });
+            } else {
+                res.json({ status: 'ok', completed: false, pending: true });
+            }
+        } catch (error) {
+            logger.error('[WebUI] Copilot poll token error:', error);
             res.status(500).json({ status: 'error', error: error.message });
         }
     });

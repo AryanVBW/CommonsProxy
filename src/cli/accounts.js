@@ -3,12 +3,13 @@
 /**
  * Account Management CLI
  *
- * Interactive CLI for adding and managing Google accounts
- * for the Antigravity Claude Proxy.
+ * Interactive CLI for adding and managing accounts
+ * for CommonsProxy. Supports multiple providers.
  *
  * Usage:
  *   node src/cli/accounts.js          # Interactive mode
  *   node src/cli/accounts.js add      # Add new account(s)
+ *   node src/cli/accounts.js add --provider=copilot  # Add Copilot account
  *   node src/cli/accounts.js list     # List all accounts
  *   node src/cli/accounts.js clear    # Remove all accounts
  */
@@ -138,9 +139,11 @@ function saveAccounts(accounts, settings = {}) {
         const config = {
             accounts: accounts.map(acc => ({
                 email: acc.email,
-                source: 'oauth',
-                refreshToken: acc.refreshToken,
-                projectId: acc.projectId,
+                source: acc.source || 'oauth',
+                refreshToken: acc.refreshToken || undefined,
+                apiKey: acc.apiKey || undefined,
+                projectId: acc.projectId || undefined,
+                provider: acc.provider || 'google',
                 addedAt: acc.addedAt || new Date().toISOString(),
                 lastUsed: acc.lastUsed || null,
                 modelRateLimits: acc.modelRateLimits || {}
@@ -169,14 +172,23 @@ function displayAccounts(accounts) {
         return;
     }
 
+    const providerLabels = {
+        google: '🔵 Google',
+        anthropic: '🟠 Anthropic',
+        openai: '🟢 OpenAI',
+        github: '🟣 GitHub',
+        copilot: '🟧 Copilot',
+        openrouter: '🟪 OpenRouter'
+    };
+
     console.log(`\n${accounts.length} account(s) saved:`);
     accounts.forEach((acc, i) => {
-        // Check for any active model-specific rate limits
         const hasActiveLimit = Object.values(acc.modelRateLimits || {}).some(
             limit => limit.isRateLimited && limit.resetTime > Date.now()
         );
         const status = hasActiveLimit ? ' (rate-limited)' : '';
-        console.log(`  ${i + 1}. ${acc.email}${status}`);
+        const provider = providerLabels[acc.provider || 'google'] || acc.provider || 'google';
+        console.log(`  ${i + 1}. ${acc.email} [${provider}]${status}`);
     });
 }
 
@@ -452,6 +464,122 @@ async function verifyAccounts() {
 }
 
 /**
+ * Add a GitHub Copilot account via device authorization flow
+ */
+async function addCopilotAccount(rl) {
+    console.log('\n=== Add GitHub Copilot Account ===\n');
+    console.log('This will use GitHub\'s device authorization flow.');
+    console.log('You need an active GitHub Copilot subscription.\n');
+
+    const accounts = loadAccounts();
+
+    if (accounts.length >= MAX_ACCOUNTS) {
+        console.log(`\nMaximum of ${MAX_ACCOUNTS} accounts reached.`);
+        return;
+    }
+
+    try {
+        const { CopilotProvider } = await import('../providers/copilot.js');
+
+        // Step 1: Initiate device auth
+        console.log('Requesting device code from GitHub...');
+        const deviceData = await CopilotProvider.initiateDeviceAuth();
+
+        console.log(`\n\x1b[1m\x1b[33m  Your code: ${deviceData.user_code}\x1b[0m\n`);
+        console.log(`  Open this URL: ${deviceData.verification_uri}`);
+        console.log('  Enter the code above and authorize the application.\n');
+
+        // Try to open browser
+        openBrowser(deviceData.verification_uri);
+
+        console.log('Waiting for authorization...');
+        console.log('(Press Ctrl+C to cancel)\n');
+
+        // Step 2: Poll for token
+        const interval = (deviceData.interval || 5) * 1000;
+        const expiresAt = Date.now() + (deviceData.expires_in || 900) * 1000;
+
+        while (Date.now() < expiresAt) {
+            await new Promise(resolve => setTimeout(resolve, interval));
+
+            try {
+                const response = await fetch('https://github.com/login/oauth/access_token', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'commons-proxy/2.0.0'
+                    },
+                    body: JSON.stringify({
+                        client_id: 'Iv1.b507a08c87ecfe98',
+                        device_code: deviceData.device_code,
+                        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.access_token) {
+                    // Success! Get user info
+                    console.log('Authorization received! Fetching user info...');
+                    const userInfo = await CopilotProvider.getUserInfo(data.access_token);
+
+                    // Check for duplicate
+                    const existing = accounts.find(a => a.email === userInfo.email && a.provider === 'copilot');
+                    if (existing) {
+                        console.log(`\n⚠ Account ${userInfo.email} already exists. Updating token.`);
+                        existing.apiKey = data.access_token;
+                        existing.addedAt = new Date().toISOString();
+                    } else {
+                        accounts.push({
+                            email: userInfo.email,
+                            source: 'manual',
+                            provider: 'copilot',
+                            apiKey: data.access_token,
+                            addedAt: new Date().toISOString(),
+                            modelRateLimits: {}
+                        });
+                        console.log(`\n✓ Successfully added: ${userInfo.email} [🟧 Copilot]`);
+                    }
+
+                    saveAccounts(accounts);
+                    displayAccounts(accounts);
+                    return;
+                }
+
+                if (data.error === 'authorization_pending') {
+                    process.stdout.write('.');
+                    continue;
+                }
+
+                if (data.error === 'slow_down') {
+                    process.stdout.write('.');
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    continue;
+                }
+
+                if (data.error === 'expired_token') {
+                    console.log('\n\n✗ Device code expired. Please try again.');
+                    return;
+                }
+
+                if (data.error) {
+                    console.log(`\n\n✗ Authorization failed: ${data.error_description || data.error}`);
+                    return;
+                }
+            } catch (pollError) {
+                console.error(`\n\n✗ Polling error: ${pollError.message}`);
+                return;
+            }
+        }
+
+        console.log('\n\n✗ Authorization timed out. Please try again.');
+    } catch (error) {
+        console.error(`\n✗ Copilot device auth failed: ${error.message}`);
+    }
+}
+
+/**
  * Main CLI
  */
 async function main() {
@@ -460,17 +588,26 @@ async function main() {
     const noBrowser = args.includes('--no-browser');
 
     console.log('╔════════════════════════════════════════╗');
-    console.log('║   Antigravity Proxy Account Manager    ║');
+    console.log('║   CommonsProxy Account Manager         ║');
+    console.log('║   Use --provider=copilot for Copilot   ║');
     console.log('║   Use --no-browser for headless mode   ║');
     console.log('╚════════════════════════════════════════╝');
 
     const rl = createRL();
 
+    // Parse --provider flag
+    const providerArg = args.find(a => a.startsWith('--provider='));
+    const provider = providerArg ? providerArg.split('=')[1] : null;
+
     try {
         switch (command) {
             case 'add':
                 await ensureServerStopped();
-                await interactiveAdd(rl, noBrowser);
+                if (provider === 'copilot') {
+                    await addCopilotAccount(rl);
+                } else {
+                    await interactiveAdd(rl, noBrowser);
+                }
                 break;
             case 'list':
                 await listAccounts();
@@ -490,7 +627,8 @@ async function main() {
                 console.log('  node src/cli/accounts.js clear   Remove all accounts');
                 console.log('  node src/cli/accounts.js help    Show this help');
                 console.log('\nOptions:');
-                console.log('  --no-browser    Manual authorization code input (for headless servers)');
+                console.log('  --provider=copilot  Add a GitHub Copilot account via device auth');
+                console.log('  --no-browser        Manual authorization code input (for headless servers)');
                 break;
             case 'remove':
                 await ensureServerStopped();

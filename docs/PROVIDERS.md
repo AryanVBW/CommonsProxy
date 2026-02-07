@@ -413,4 +413,145 @@ When reporting issues:
 - Enable `--fallback` for automatic failover
 - Monitor quota in WebUI dashboard
 
+---
+
+## GitHub Copilot
+
+### Overview
+- **Authentication**: GitHub Device Authorization Flow
+- **Cost**: Requires active GitHub Copilot subscription ($10/month Individual, $19/month Business)
+- **Quota Tracking**: ⚠️ Copilot rate limits (not exposed via API)
+
+### Prerequisites
+- GitHub account with an active **GitHub Copilot** subscription
+- No API key needed — uses device authorization flow
+
+### Setup
+
+#### Method 1: WebUI (Recommended)
+1. Open CommonsProxy WebUI at `http://localhost:8080`
+2. Go to **Accounts** → **Add Account**
+3. Select **GitHub Copilot** from the provider dropdown
+4. Click **Connect GitHub Copilot**
+5. A new window opens to `https://github.com/login/device`
+6. Enter the **device code** shown in the modal
+7. Authorize the application on GitHub
+8. Account is automatically added once authorized
+
+#### Method 2: CLI
+```bash
+# Add via CLI (interactive device auth flow)
+commons-proxy accounts add --provider=copilot
+```
+
+### Available Models
+
+| Model ID | Display Name | Context Window | Features |
+|----------|-------------|----------------|----------|
+| `gpt-4o` | GPT-4o | 128K | Vision |
+| `gpt-4` | GPT-4 | 8K | - |
+| `gpt-4-turbo` | GPT-4 Turbo | 128K | Vision |
+| `gpt-3.5-turbo` | GPT-3.5 Turbo | 16K | - |
+| `claude-3.5-sonnet` | Claude 3.5 Sonnet | 200K | Thinking, Vision |
+| `o1-preview` | o1 Preview | 128K | Reasoning |
+| `o1-mini` | o1 Mini | 128K | Reasoning |
+
+### Rate Limits
+GitHub Copilot has rate limits that vary by subscription tier:
+- **Individual**: Standard rate limits
+- **Business/Enterprise**: Higher rate limits
+
+### How It Works
+1. CommonsProxy initiates a GitHub Device Authorization flow
+2. You authorize on GitHub's website with a one-time code
+3. CommonsProxy receives a GitHub OAuth token
+4. The token is exchanged for a short-lived Copilot API token (~30 min)
+5. Copilot tokens are automatically refreshed as needed
+
+### Troubleshooting
+
+**"Copilot access denied"**
+- Ensure you have an active GitHub Copilot subscription
+- Check your subscription at https://github.com/settings/copilot
+
+**"Device code expired"**
+- The device code expires after a few minutes
+- Start the authorization flow again
+
+**"Failed to get Copilot token"**
+- Your GitHub token may have expired
+- Remove and re-add the account
+
+---
+
+## 6. OpenRouter
+
+### Overview
+- **Authentication**: API Key (Bearer token)
+- **Cost**: Pay-per-use (credit-based)
+- **Quota Tracking**: ✅ Credit-based via API
+- **Models**: 100+ models from multiple providers (Claude, GPT, Gemini, Llama, Mistral, DeepSeek, etc.)
+
+### Prerequisites
+1. An [OpenRouter](https://openrouter.ai/) account
+2. An API key from [openrouter.ai/keys](https://openrouter.ai/keys)
+
+### Setup
+
+#### Via WebUI (Recommended)
+1. Start CommonsProxy: `commons-proxy start`
+2. Open WebUI at `http://localhost:8080`
+3. Click **Add Account**
+4. Select **OpenRouter** as the provider
+5. Enter your email/label and API key
+6. Click **Add Account**
+
+#### Via CLI
+```bash
+commons-proxy accounts add
+# When prompted, choose to add a new account
+# Select OpenRouter as provider
+# Enter your API key
+```
+
+### Available Models
+
+OpenRouter provides access to 100+ models. Some popular ones:
+
+| Model ID | Name | Context | Features |
+|----------|------|---------|----------|
+| `anthropic/claude-sonnet-4` | Claude Sonnet 4 | 200K | Thinking, Vision |
+| `anthropic/claude-3.5-sonnet` | Claude 3.5 Sonnet | 200K | Vision |
+| `openai/gpt-4o` | GPT-4o | 128K | Vision |
+| `openai/gpt-4o-mini` | GPT-4o Mini | 128K | Vision |
+| `google/gemini-2.5-pro-preview` | Gemini 2.5 Pro | 1M | Thinking, Vision |
+| `meta-llama/llama-3.1-405b-instruct` | Llama 3.1 405B | 131K | - |
+| `deepseek/deepseek-r1` | DeepSeek R1 | 64K | Thinking |
+
+See the full list at [openrouter.ai/models](https://openrouter.ai/models).
+
+### Rate Limits
+- Rate limits depend on your account tier and credit balance
+- Free tier has lower rate limits
+- Paid accounts get higher throughput
+
+### Troubleshooting
+
+**"Invalid API key"**
+- Verify your key at [openrouter.ai/keys](https://openrouter.ai/keys)
+- Ensure the key hasn't been revoked or expired
+- Check that you have sufficient credits
+
+**"Rate limit exceeded"**
+- Wait for the rate limit window to reset
+- Consider upgrading your OpenRouter plan
+- Add multiple OpenRouter accounts for load balancing
+
+**Models not showing**
+- Ensure your API key has access to the models
+- Some models may require a paid account
+- Check [openrouter.ai/models](https://openrouter.ai/models) for availability
+
+---
+
 Happy coding! 🚀

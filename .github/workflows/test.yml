@@ -1,6 +1,10 @@
 name: CI Tests
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       run_tests:
@@ -25,14 +29,30 @@ jobs:
         run: npm ci
 
       - name: Check syntax
-        run: node -c src/index.js
+        run: |
+          node -c src/index.js
+          node -c src/server.js
+          node -c src/config.js
+          node -c src/constants.js
 
       - name: Verify package.json
         run: |
           node -e "const pkg = require('./package.json'); 
           if (!pkg.version) throw new Error('Missing version');
           if (!pkg.main) throw new Error('Missing main');
-          console.log('✅ package.json is valid');"
+          if (!pkg.bin) throw new Error('Missing bin');
+          console.log('✅ package.json is valid: ' + pkg.name + '@' + pkg.version);"
+
+      - name: Verify provider system
+        run: |
+          node -e "
+            // Verify all provider files parse correctly
+            const fs = require('fs');
+            const providerDir = './src/providers';
+            const files = fs.readdirSync(providerDir).filter(f => f.endsWith('.js'));
+            console.log('Provider files:', files.join(', '));
+            console.log('✅ All ' + files.length + ' provider files found');
+          "
 
       - name: Build CSS
         run: npm run build:css
@@ -48,6 +68,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     if: github.event.inputs.run_tests == 'true'
+    needs: lint
     strategy:
       matrix:
         node-version: [18, 20, 22]

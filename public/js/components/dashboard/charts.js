@@ -31,6 +31,12 @@ const FAMILY_COLORS = {
   get gemini() {
     return getThemeColor("--color-neon-green");
   },
+  get gpt() {
+    return '#10b981';
+  },
+  get o1() {
+    return '#f97316';
+  },
   get other() {
     return getThemeColor("--color-neon-cyan");
   },
@@ -40,7 +46,9 @@ const PROVIDER_COLORS = {
   google: '#4285f4',
   anthropic: '#d97706',
   openai: '#10b981',
-  github: '#6366f1'
+  github: '#6366f1',
+  copilot: '#f97316',
+  openrouter: '#6d28d9'
 };
 
 const MODEL_COLORS = Array.from({ length: 16 }, (_, i) =>

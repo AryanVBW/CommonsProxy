@@ -5,28 +5,23 @@
  * Called during server startup.
  */
 
-import { registerProvider, listProviders } from './index.js';
+import { registerProvider, listProviders, getAllAuthProviders } from './index.js';
 import { CloudCodeProvider } from './cloudcode.js';
-import { CopilotProvider } from './copilot.js';
 import { createOpenAICompatibleProvider } from './openai-compatible.js';
 import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
 
 /**
  * Initialize all providers
- * Registers built-in providers and any custom providers from config
+ * Registers built-in messaging providers and any custom providers from config.
+ * Note: Authentication providers (Google, Anthropic, OpenAI, GitHub, Copilot)
+ * are registered automatically in providers/index.js
  */
 export function initializeProviders() {
     logger.info('[Providers] Initializing provider system...');
     
-    // Register built-in providers
+    // Register built-in messaging providers (for request routing)
     registerProvider(CloudCodeProvider);
-    
-    // Register GitHub Copilot if enabled in config
-    if (config?.providers?.copilot?.enabled) {
-        CopilotProvider.enabled = true;
-        registerProvider(CopilotProvider);
-    }
     
     // Register custom OpenAI-compatible providers from config
     const customProviders = config?.providers?.custom || [];
@@ -42,10 +37,12 @@ export function initializeProviders() {
     }
     
     // Log registered providers
-    const providers = listProviders();
-    logger.success(`[Providers] Initialized ${providers.length} provider(s): ${providers.map(p => p.id).join(', ')}`);
+    const messagingProviders = listProviders();
+    const authProviders = getAllAuthProviders();
+    logger.success(`[Providers] Initialized ${messagingProviders.length} messaging provider(s): ${messagingProviders.map(p => p.id).join(', ')}`);
+    logger.success(`[Providers] ${authProviders.length} auth provider(s) available: ${authProviders.map(p => p.id).join(', ')}`);
     
-    return providers;
+    return messagingProviders;
 }
 
 /**

@@ -53,6 +53,8 @@ PROVIDERS:
   🟠 Anthropic          Direct API access via API key
   🟢 OpenAI             GPT models via API key (supports Azure)
   🟣 GitHub Models      GitHub marketplace access via Personal Access Token
+  🟧 GitHub Copilot     Device authorization flow for Copilot models
+  🟪 OpenRouter          Unified API for 100+ models via API key
 
 EXAMPLES:
   # Start server with default settings

@@ -1,7 +1,7 @@
 /**
  * Add Account Modal Component
  * Registers itself to window.Components for Alpine.js to consume
- * Supports multi-provider account addition (Google OAuth, API keys, PAT)
+ * Supports multi-provider account addition (Google OAuth, API keys, PAT, Device Auth)
  */
 window.Components = window.Components || {};
 
@@ -21,6 +21,13 @@ window.Components.addAccountModal = () => ({
     authState: '',
     callbackInput: '',
     submitting: false,
+
+    // Copilot Device Auth state
+    copilotFlowId: null,
+    copilotUserCode: '',
+    copilotVerificationUri: '',
+    copilotPolling: false,
+    copilotPollTimer: null,
 
     async init() {
         // Fetch available providers on modal init
@@ -53,7 +60,9 @@ window.Components.addAccountModal = () => ({
                 { id: 'google', name: 'Google Cloud Code', authType: 'oauth', color: '#4285f4' },
                 { id: 'anthropic', name: 'Anthropic', authType: 'api-key', color: '#d97706' },
                 { id: 'openai', name: 'OpenAI', authType: 'api-key', color: '#10b981' },
-                { id: 'github', name: 'GitHub Models', authType: 'pat', color: '#6366f1' }
+                { id: 'github', name: 'GitHub Models', authType: 'api-key', color: '#6366f1' },
+                { id: 'copilot', name: 'GitHub Copilot', authType: 'device-auth', color: '#f97316' },
+                { id: 'openrouter', name: 'OpenRouter', authType: 'api-key', color: '#6d28d9' }
             ];
         }
     },
@@ -68,6 +77,10 @@ window.Components.addAccountModal = () => ({
 
     get requiresApiKey() {
         return this.currentProvider?.authType === 'api-key' || this.currentProvider?.authType === 'pat';
+    },
+
+    get isDeviceAuthProvider() {
+        return this.currentProvider?.authType === 'device-auth';
     },
 
     get apiKeyLabel() {
@@ -87,6 +100,8 @@ window.Components.addAccountModal = () => ({
             return 'sk-...';
         } else if (provider.id === 'github') {
             return 'github_pat_...';
+        } else if (provider.id === 'openrouter') {
+            return 'sk-or-v1-...';
         }
         return 'Enter your API key or token';
     },
@@ -99,6 +114,11 @@ window.Components.addAccountModal = () => ({
         this.authUrl = '';
         this.callbackInput = '';
         this.manualMode = false;
+        // Stop any active Copilot polling
+        this.stopCopilotPolling();
+        this.copilotFlowId = null;
+        this.copilotUserCode = '';
+        this.copilotVerificationUri = '';
     },
 
     // ==================== OAuth Methods (Google) ====================
@@ -186,7 +206,110 @@ window.Components.addAccountModal = () => ({
         }
     },
 
-    // ==================== API Key Methods (Anthropic, OpenAI, GitHub) ====================
+    // ==================== Copilot Device Auth Methods ====================
+
+    async startCopilotDeviceAuth() {
+        const store = Alpine.store('global');
+        this.submitting = true;
+
+        try {
+            const { response, newPassword } = await window.utils.request(
+                '/api/copilot/device-auth',
+                { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+                store.webuiPassword
+            );
+            if (newPassword) store.webuiPassword = newPassword;
+
+            const data = await response.json();
+            if (data.status === 'ok') {
+                this.copilotFlowId = data.flowId;
+                this.copilotUserCode = data.userCode;
+                this.copilotVerificationUri = data.verificationUri;
+
+                // Open GitHub verification page
+                window.open(data.verificationUri, '_blank', 'width=600,height=700,scrollbars=yes');
+
+                store.showToast('Enter the code shown below on GitHub to authorize', 'info');
+
+                // Start polling for token
+                this.startCopilotPolling(data.interval || 5);
+            } else {
+                store.showToast(data.error || 'Failed to start device auth', 'error');
+            }
+        } catch (e) {
+            store.showToast('Device auth failed: ' + e.message, 'error');
+        } finally {
+            this.submitting = false;
+        }
+    },
+
+    startCopilotPolling(interval) {
+        this.copilotPolling = true;
+        const poll = async () => {
+            if (!this.copilotPolling || !this.copilotFlowId) return;
+
+            try {
+                const store = Alpine.store('global');
+                const { response, newPassword } = await window.utils.request(
+                    '/api/copilot/poll-token',
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ flowId: this.copilotFlowId })
+                    },
+                    store.webuiPassword
+                );
+                if (newPassword) store.webuiPassword = newPassword;
+
+                const data = await response.json();
+
+                if (data.completed) {
+                    // Success!
+                    this.stopCopilotPolling();
+                    store.showToast(`Copilot account ${data.email} added successfully!`, 'success');
+                    Alpine.store('data').fetchData();
+                    document.getElementById('add_account_modal').close();
+                    this.resetState();
+                    return;
+                }
+
+                if (data.status === 'error') {
+                    this.stopCopilotPolling();
+                    store.showToast(data.error || 'Device auth failed', 'error');
+                    return;
+                }
+
+                // Update interval if server says to slow down
+                if (data.interval) {
+                    interval = data.interval;
+                }
+
+                // Continue polling
+                this.copilotPollTimer = setTimeout(poll, interval * 1000);
+            } catch (e) {
+                this.stopCopilotPolling();
+                Alpine.store('global').showToast('Polling error: ' + e.message, 'error');
+            }
+        };
+
+        this.copilotPollTimer = setTimeout(poll, interval * 1000);
+    },
+
+    stopCopilotPolling() {
+        this.copilotPolling = false;
+        if (this.copilotPollTimer) {
+            clearTimeout(this.copilotPollTimer);
+            this.copilotPollTimer = null;
+        }
+    },
+
+    async copyCopilotCode() {
+        if (!this.copilotUserCode) return;
+        await navigator.clipboard.writeText(this.copilotUserCode);
+        Alpine.store('global').showToast('Code copied to clipboard', 'success');
+    },
+
+    // ==================== API Key Methods (Anthropic, OpenAI, GitHub) ==
 
     async addAccountWithProvider() {
         return await window.ErrorHandler.withLoading(async () => {
@@ -279,6 +402,11 @@ window.Components.addAccountModal = () => ({
         this.authState = '';
         this.callbackInput = '';
         this.submitting = false;
+        // Stop Copilot polling
+        this.stopCopilotPolling();
+        this.copilotFlowId = null;
+        this.copilotUserCode = '';
+        this.copilotVerificationUri = '';
         // Close any open details elements
         const details = document.querySelectorAll('#add_account_modal details[open]');
         details.forEach(d => d.removeAttribute('open'));

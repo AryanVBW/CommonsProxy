@@ -17,6 +17,8 @@ import GoogleProvider from './google-provider.js';
 import AnthropicProvider from './anthropic-provider.js';
 import OpenAIProvider from './openai-provider.js';
 import GitHubProvider from './github-provider.js';
+import CopilotProvider from './copilot.js';
+import OpenRouterProvider from './openrouter-provider.js';
 
 // Provider registry (legacy system for message routing providers)
 const messagingProviders = new Map();
@@ -29,6 +31,8 @@ authProviders.set('google', new GoogleProvider());
 authProviders.set('anthropic', new AnthropicProvider());
 authProviders.set('openai', new OpenAIProvider());
 authProviders.set('github', new GitHubProvider());
+authProviders.set('copilot', new CopilotProvider());
+authProviders.set('openrouter', new OpenRouterProvider());
 
 /**
  * Provider interface definition
@@ -127,7 +131,7 @@ export function getAllAuthProviders() {
     return Array.from(authProviders.entries()).map(([id, provider]) => ({
         id,
         name: provider.name,
-        authType: id === 'google' ? 'oauth' : 'api-key'
+        authType: id === 'google' ? 'oauth' : (id === 'copilot' ? 'device-auth' : 'api-key')
     }));
 }
 
@@ -167,7 +171,7 @@ export function hasAuthProvider(providerId) {
 export const ProviderType = {
     CLOUDCODE: 'cloudcode',
     COPILOT: 'copilot',
-    OPENAI: 'openai',
+    OPENROUTER: 'openrouter',
     ANTHROPIC: 'anthropic',
     GITHUB: 'github',
     CUSTOM: 'custom'
@@ -178,7 +182,9 @@ export {
     GoogleProvider,
     AnthropicProvider,
     OpenAIProvider,
-    GitHubProvider
+    GitHubProvider,
+    CopilotProvider,
+    OpenRouterProvider
 };
 
 export default {
@@ -198,6 +204,8 @@ export default {
     AnthropicProvider,
     OpenAIProvider,
     GitHubProvider,
+    CopilotProvider,
+    OpenRouterProvider,
     // Enums
     ProviderType
 };
