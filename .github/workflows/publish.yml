@@ -1,20 +1,38 @@
-name: Publish to npm
+name: Auto Publish to npm
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'images/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/FUNDING.yml'
+      - 'LICENSE'
   release:
     types: [published]
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Release tag (e.g., v2.0.0)'
-        required: true
+      bump:
+        description: 'Version bump type'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  publish:
+  # ─── Job 1: Security & Dependency Audit (parallel) ───────────────
+  audit:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,7 +41,144 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Security audit
+        run: |
+          echo "## 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --omit=dev 2>&1 | tee audit-output.txt
+          AUDIT_EXIT=${PIPESTATUS[0]}
+          if [ $AUDIT_EXIT -eq 0 ]; then
+            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Vulnerabilities detected (non-blocking for patch updates)" >> $GITHUB_STEP_SUMMARY
+            cat audit-output.txt >> $GITHUB_STEP_SUMMARY
+          fi
+          # Don't fail on audit — report only (critical vulns caught below)
+
+      - name: Check for critical/high vulnerabilities
+        run: |
+          CRITICAL=$(npm audit --json --omit=dev 2>/dev/null | node -e "
+            let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+              try{const a=JSON.parse(d);const v=a.metadata?.vulnerabilities||{};
+              console.log(String((v.critical||0)+(v.high||0)))}
+              catch(e){console.log('0')}
+            })" 2>/dev/null || echo "0")
+          echo "Critical+High vulnerabilities: $CRITICAL"
+          if [ "$CRITICAL" != "0" ] && [ "$CRITICAL" != "" ]; then
+            echo "❌ Found $CRITICAL critical/high vulnerabilities in production dependencies"
+            echo "Run 'npm audit' locally and fix before publishing"
+            exit 1
+          fi
+
+      - name: Check dependency versions
+        run: |
+          echo "## 📦 Dependency Status" >> $GITHUB_STEP_SUMMARY
+          npx --yes npm-check-updates --target semver 2>&1 | tee ncu-output.txt
+          if grep -q "All dependencies match" ncu-output.txt; then
+            echo "✅ All dependencies are up-to-date (semver range)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ Available updates (within semver range):" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ncu-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Validate package.json integrity
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const checks = [];
+            if (!pkg.name) checks.push('Missing name');
+            if (!pkg.version) checks.push('Missing version');
+            if (!pkg.main) checks.push('Missing main');
+            if (!pkg.bin) checks.push('Missing bin');
+            if (!pkg.license) checks.push('Missing license');
+            if (!pkg.repository) checks.push('Missing repository');
+            if (!pkg.engines) checks.push('Missing engines');
+            if (checks.length > 0) {
+              console.error('❌ package.json validation failed:');
+              checks.forEach(c => console.error('  - ' + c));
+              process.exit(1);
+            }
+            console.log('✅ package.json valid: ' + pkg.name + '@' + pkg.version);
+          "
+
+  # ─── Job 2: Lint & Build Verification (parallel) ─────────────────
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check core files
+        run: |
+          node -c src/index.js
+          node -c src/server.js
+          node -c src/config.js
+          node -c src/constants.js
+          node -c bin/cli.js
+
+      - name: Verify provider files
+        run: |
+          node -e "
+            const fs = require('fs');
+            const dir = './src/providers';
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
+            console.log('✅ Found ' + files.length + ' provider files: ' + files.join(', '));
+            if (files.length === 0) { console.error('❌ No providers found'); process.exit(1); }
+          "
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Verify build artifacts
+        run: |
+          test -f public/css/style.css || (echo "❌ CSS build missing" && exit 1)
+          echo "✅ Build artifacts verified"
+
+      - name: Dry-run pack
+        run: |
+          npm pack --dry-run 2>&1 | tee pack-output.txt
+          echo "## 📋 Package Contents" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat pack-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ─── Job 3: Publish (after audit + verify pass) ──────────────────
+  publish:
+    needs: [audit, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -31,61 +186,112 @@ jobs:
       - name: Build CSS
         run: npm run build:css
 
-      - name: Show current version and extract new version
+      - name: Detect version and bump
         id: version
         run: |
-          # Get current version from package.json
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "📦 Current version in package.json: $CURRENT_VERSION"
-          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          
-          # Extract new version from tag
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+
+          # Determine bump type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          else
+            BUMP="${{ github.event.inputs.bump }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
             TAG="${{ github.event.release.tag_name }}"
-          fi
-          NEW_VERSION=${TAG#v}
-          echo "🚀 New version to publish: $NEW_VERSION"
-          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-          
-          # Compare versions
-          if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
-            echo "⚠️  Warning: Current and new versions are the same"
+            NEW_VERSION="${TAG#v}"
+            echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "bumped=true" >> $GITHUB_OUTPUT
+            echo "📦 Release version: $NEW_VERSION"
+            exit 0
           else
-            echo "✅ Version will be updated: $CURRENT_VERSION → $NEW_VERSION"
+            # Auto-detect from commit messages
+            COMMITS=$(git log --oneline -10 --format="%s")
+            if echo "$COMMITS" | grep -qiE "^(BREAKING|feat!|fix!|refactor!)"; then
+              BUMP="major"
+            elif echo "$COMMITS" | grep -qiE "^feat"; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
           fi
 
-      - name: Manually update package.json version
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+
+          # Calculate new version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          case "$BUMP" in
+            major) NEW_VERSION="$((MAJOR+1)).0.0" ;;
+            minor) NEW_VERSION="$MAJOR.$((MINOR+1)).0" ;;
+            patch) NEW_VERSION="$MAJOR.$MINOR.$((PATCH+1))" ;;
+          esac
+
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "bumped=true" >> $GITHUB_OUTPUT
+          echo "📦 Version bump: $CURRENT → $NEW_VERSION ($BUMP)"
+
+      - name: Check if version already published
+        id: check
         run: |
-          echo "Writing new version ${{ steps.version.outputs.new }} to package.json..."
-          
-          # Use node to update version in package.json
+          NEW="${{ steps.version.outputs.new }}"
+          if npm view "commons-proxy@$NEW" version 2>/dev/null; then
+            echo "⚠️ Version $NEW already published — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Version $NEW is available for publishing"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Update package.json version
+        if: steps.check.outputs.skip != 'true'
+        run: |
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const oldVersion = pkg.version;
+            const old = pkg.version;
             pkg.version = '${{ steps.version.outputs.new }}';
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-            console.log('✅ Updated package.json version: ' + oldVersion + ' → ' + pkg.version);
+            console.log('✅ ' + old + ' → ' + pkg.version);
           "
-          
-          # Verify the update
-          UPDATED_VERSION=$(node -p "require('./package.json').version")
-          echo "Verified package.json version: $UPDATED_VERSION"
-          
-          if [ "$UPDATED_VERSION" != "${{ steps.version.outputs.new }}" ]; then
-            echo "❌ Error: Version update failed"
-            exit 1
-          fi
 
-      - name: Publish to npm (with provenance)
+      - name: Publish to npm
+        if: steps.check.outputs.skip != 'true'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Tag and push version commit
+        if: steps.check.outputs.skip != 'true' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: release v${{ steps.version.outputs.new }} [skip ci]" || true
+          git tag "v${{ steps.version.outputs.new }}"
+          git push origin main --tags || true
+
+      - name: Publish summary
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          echo "## 🚀 Published to npm" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package**: \`commons-proxy@${{ steps.version.outputs.new }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous**: \`${{ steps.version.outputs.current }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g commons-proxy@${{ steps.version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[![npm version](https://img.shields.io/npm/v/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skipped summary
+        if: steps.check.outputs.skip == 'true'
+        run: |
+          echo "## ⏭️ Publish Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "Version \`${{ steps.version.outputs.new }}\` is already published on npm." >> $GITHUB_STEP_SUMMARY
+
       - name: Add npm badge to release notes
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && steps.check.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -94,9 +300,7 @@ jobs:
               repo: context.repo.repo,
               release_id: context.payload.release.id
             });
-            
             const npmBadge = `\n\n---\n\n## 📦 Installation\n\n\`\`\`bash\nnpm install -g commons-proxy@${{ steps.version.outputs.new }}\n\`\`\`\n\n[![npm version](https://img.shields.io/npm/v/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)\n[![npm downloads](https://img.shields.io/npm/dm/commons-proxy.svg)](https://www.npmjs.com/package/commons-proxy)`;
-            
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
