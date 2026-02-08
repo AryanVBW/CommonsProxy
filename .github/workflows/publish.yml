@@ -126,11 +126,9 @@ jobs:
 
       - name: Syntax check core files
         run: |
-          node -c src/index.js
-          node -c src/server.js
-          node -c src/config.js
-          node -c src/constants.js
-          node -c bin/cli.js
+          for f in src/index.js src/server.js src/config.js src/constants.js bin/cli.js; do
+            node --input-type=module -e "import('./$f')" && echo "✅ $f" || { echo "❌ $f"; exit 1; }
+          done
 
       - name: Verify provider files
         run: |
@@ -161,6 +159,7 @@ jobs:
   # ─── Job 3: Publish (after audit + verify pass) ──────────────────
   publish:
     needs: [audit, verify]
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -245,14 +244,8 @@ jobs:
       - name: Update package.json version
         if: steps.check.outputs.skip != 'true'
         run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const old = pkg.version;
-            pkg.version = '${{ steps.version.outputs.new }}';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-            console.log('✅ ' + old + ' → ' + pkg.version);
-          "
+          npm version "${{ steps.version.outputs.new }}" --no-git-tag-version --allow-same-version
+          echo "✅ $(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")"
 
       - name: Publish to npm
         if: steps.check.outputs.skip != 'true'
@@ -265,7 +258,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
+          git add package.json package-lock.json
           git commit -m "chore: release v${{ steps.version.outputs.new }} [skip ci]" || true
           git tag "v${{ steps.version.outputs.new }}"
           git push origin main --tags || true

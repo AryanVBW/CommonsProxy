@@ -30,10 +30,9 @@ jobs:
 
       - name: Check syntax
         run: |
-          node -c src/index.js
-          node -c src/server.js
-          node -c src/config.js
-          node -c src/constants.js
+          for f in src/index.js src/server.js src/config.js src/constants.js; do
+            node --input-type=module -e "import('./$f')" && echo "✅ $f" || { echo "❌ $f"; exit 1; }
+          done
 
       - name: Verify package.json
         run: |
