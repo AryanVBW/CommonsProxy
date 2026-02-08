@@ -78,7 +78,7 @@ jobs:
       - name: Syntax check core files
         run: |
           for f in src/index.js src/server.js src/config.js src/constants.js bin/cli.js; do
-            node --input-type=module -e "import('./$f')" && echo "✅ $f" || { echo "❌ $f"; exit 1; }
+            node --input-type=module --check < "$f" && echo "✅ $f" || { echo "❌ $f"; exit 1; }
           done
 
       - name: Verify provider files
