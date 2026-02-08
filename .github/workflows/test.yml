@@ -1,8 +1,6 @@
 name: CI Tests
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,6 +9,10 @@ on:
         description: 'Run full test suite (slow)'
         type: boolean
         default: false
+
+concurrency:
+  group: ci-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:

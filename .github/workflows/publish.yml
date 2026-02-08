@@ -29,86 +29,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ─── Job 1: Security & Dependency Audit (parallel) ───────────────
-  audit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Security audit
-        run: |
-          echo "## 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
-          npm audit --omit=dev 2>&1 | tee audit-output.txt
-          AUDIT_EXIT=${PIPESTATUS[0]}
-          if [ $AUDIT_EXIT -eq 0 ]; then
-            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Vulnerabilities detected (non-blocking for patch updates)" >> $GITHUB_STEP_SUMMARY
-            cat audit-output.txt >> $GITHUB_STEP_SUMMARY
-          fi
-          # Don't fail on audit — report only (critical vulns caught below)
-
-      - name: Check for critical/high vulnerabilities
-        run: |
-          CRITICAL=$(npm audit --json --omit=dev 2>/dev/null | node -e "
-            let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
-              try{const a=JSON.parse(d);const v=a.metadata?.vulnerabilities||{};
-              console.log(String((v.critical||0)+(v.high||0)))}
-              catch(e){console.log('0')}
-            })" 2>/dev/null || echo "0")
-          echo "Critical+High vulnerabilities: $CRITICAL"
-          if [ "$CRITICAL" != "0" ] && [ "$CRITICAL" != "" ]; then
-            echo "❌ Found $CRITICAL critical/high vulnerabilities in production dependencies"
-            echo "Run 'npm audit' locally and fix before publishing"
-            exit 1
-          fi
-
-      - name: Check dependency versions
-        run: |
-          echo "## 📦 Dependency Status" >> $GITHUB_STEP_SUMMARY
-          npx --yes npm-check-updates --target semver 2>&1 | tee ncu-output.txt
-          if grep -q "All dependencies match" ncu-output.txt; then
-            echo "✅ All dependencies are up-to-date (semver range)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "ℹ️ Available updates (within semver range):" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat ncu-output.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Validate package.json integrity
-        run: |
-          node -e "
-            const pkg = require('./package.json');
-            const checks = [];
-            if (!pkg.name) checks.push('Missing name');
-            if (!pkg.version) checks.push('Missing version');
-            if (!pkg.main) checks.push('Missing main');
-            if (!pkg.bin) checks.push('Missing bin');
-            if (!pkg.license) checks.push('Missing license');
-            if (!pkg.repository) checks.push('Missing repository');
-            if (!pkg.engines) checks.push('Missing engines');
-            if (checks.length > 0) {
-              console.error('❌ package.json validation failed:');
-              checks.forEach(c => console.error('  - ' + c));
-              process.exit(1);
-            }
-            console.log('✅ package.json valid: ' + pkg.name + '@' + pkg.version);
-          "
-
-  # ─── Job 2: Lint & Build Verification (parallel) ─────────────────
-  verify:
+  # ─── Job 1: Audit, Lint & Build Verification ───────────────────
+  check:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -124,6 +47,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit
+        run: |
+          echo "## 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
+          CRITICAL=$(npm audit --json --omit=dev 2>/dev/null | node -e "
+            let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+              try{const a=JSON.parse(d);const v=a.metadata?.vulnerabilities||{};
+              const c=(v.critical||0)+(v.high||0);
+              console.log(String(c));
+              if(c>0)process.exitCode=0}
+              catch(e){console.log('0')}
+            })" 2>/dev/null || echo "0")
+          echo "Critical+High vulnerabilities: $CRITICAL"
+          if [ "$CRITICAL" != "0" ] && [ "$CRITICAL" != "" ]; then
+            echo "❌ Found $CRITICAL critical/high vulnerabilities" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ No critical/high vulnerabilities" >> $GITHUB_STEP_SUMMARY
+
+      - name: Validate package.json
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const required = ['name','version','main','bin','license','repository','engines'];
+            const missing = required.filter(k => !pkg[k]);
+            if (missing.length) { console.error('❌ Missing: ' + missing.join(', ')); process.exit(1); }
+            console.log('✅ package.json valid: ' + pkg.name + '@' + pkg.version);
+          "
+
       - name: Syntax check core files
         run: |
           for f in src/index.js src/server.js src/config.js src/constants.js bin/cli.js; do
@@ -134,18 +85,15 @@ jobs:
         run: |
           node -e "
             const fs = require('fs');
-            const dir = './src/providers';
-            const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
-            console.log('✅ Found ' + files.length + ' provider files: ' + files.join(', '));
+            const files = fs.readdirSync('./src/providers').filter(f => f.endsWith('.js'));
             if (files.length === 0) { console.error('❌ No providers found'); process.exit(1); }
+            console.log('✅ Found ' + files.length + ' providers: ' + files.join(', '));
           "
 
-      - name: Build CSS
-        run: npm run build:css
-
-      - name: Verify build artifacts
+      - name: Build CSS & verify
         run: |
-          test -f public/css/style.css || (echo "❌ CSS build missing" && exit 1)
+          npm run build:css
+          test -f public/css/style.css || { echo "❌ CSS build missing"; exit 1; }
           echo "✅ Build artifacts verified"
 
       - name: Dry-run pack
@@ -156,10 +104,9 @@ jobs:
           cat pack-output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-  # ─── Job 3: Publish (after audit + verify pass) ──────────────────
+  # ─── Job 2: Publish (after checks pass) ────────────────────────
   publish:
-    needs: [audit, verify]
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    needs: [check]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
