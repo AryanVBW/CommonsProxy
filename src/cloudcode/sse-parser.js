@@ -102,6 +102,61 @@ export async function parseThinkingSSEResponse(response, originalModel) {
         }
     }
 
+    // Flush any remaining decoder bytes (TextDecoder may buffer partial multi-byte chars)
+    buffer += decoder.decode();
+
+    // Process any remaining data left in the buffer after the read loop exits.
+    // The last SSE chunk may not end with a newline, so buffer can hold a final data line
+    // containing finishReason and usageMetadata that would otherwise be lost.
+    if (buffer.trim()) {
+        const remainingLines = buffer.split('\n');
+        for (const line of remainingLines) {
+            if (!line.startsWith('data:')) continue;
+            const jsonText = line.slice(5).trim();
+            if (!jsonText) continue;
+
+            try {
+                const data = JSON.parse(jsonText);
+                const innerResponse = data.response || data;
+
+                if (innerResponse.usageMetadata) {
+                    usageMetadata = innerResponse.usageMetadata;
+                }
+
+                const candidates = innerResponse.candidates || [];
+                const firstCandidate = candidates[0] || {};
+                if (firstCandidate.finishReason) {
+                    finishReason = firstCandidate.finishReason;
+                }
+
+                const parts = firstCandidate.content?.parts || [];
+                for (const part of parts) {
+                    if (part.thought === true) {
+                        flushText();
+                        accumulatedThinkingText += (part.text || '');
+                        if (part.thoughtSignature) {
+                            accumulatedThinkingSignature = part.thoughtSignature;
+                        }
+                    } else if (part.functionCall) {
+                        flushThinking();
+                        flushText();
+                        finalParts.push(part);
+                    } else if (part.text !== undefined) {
+                        if (!part.text) continue;
+                        flushThinking();
+                        accumulatedText += part.text;
+                    } else if (part.inlineData) {
+                        flushThinking();
+                        flushText();
+                        finalParts.push(part);
+                    }
+                }
+            } catch (e) {
+                logger.debug('[CloudCode] SSE parse warning (remaining buffer):', e.message, 'Raw:', jsonText.slice(0, 100));
+            }
+        }
+    }
+
     flushThinking();
     flushText();
 

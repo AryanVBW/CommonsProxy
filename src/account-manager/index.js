@@ -48,6 +48,11 @@ export class AccountManager {
     #tokenCache = new Map(); // email -> { token, extractedAt }
     #projectCache = new Map(); // email -> projectId
 
+    // Debounce state for saveToDisk - collapses rapid successive saves into one
+    #saveTimer = null;
+    #savePromise = null;
+    #saveResolvers = [];
+
     constructor(configPath = ACCOUNT_CONFIG_PATH, strategyName = null) {
         this.#configPath = configPath;
         // Strategy name can be set at construction or later via initialize
@@ -396,11 +401,36 @@ export class AccountManager {
     }
 
     /**
-     * Save current state to disk (async)
+     * Save current state to disk (debounced, async).
+     * Rapid successive calls within 500ms are collapsed into a single write.
+     * Returns a promise that resolves when the debounced write completes.
      * @returns {Promise<void>}
      */
-    async saveToDisk() {
-        await saveAccounts(this.#configPath, this.#accounts, this.#settings, this.#currentIndex);
+    saveToDisk() {
+        // If there's already a pending debounce timer, clear it and reuse the promise
+        if (this.#saveTimer) {
+            clearTimeout(this.#saveTimer);
+        }
+
+        // Create a new promise that callers can await
+        const promise = new Promise((resolve, reject) => {
+            this.#saveResolvers.push({ resolve, reject });
+        });
+
+        this.#saveTimer = setTimeout(async () => {
+            this.#saveTimer = null;
+            const resolvers = this.#saveResolvers;
+            this.#saveResolvers = [];
+
+            try {
+                await saveAccounts(this.#configPath, this.#accounts, this.#settings, this.#currentIndex);
+                for (const { resolve } of resolvers) resolve();
+            } catch (error) {
+                for (const { reject } of resolvers) reject(error);
+            }
+        }, 500);
+
+        return promise;
     }
 
     /**

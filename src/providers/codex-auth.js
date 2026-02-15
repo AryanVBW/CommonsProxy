@@ -23,6 +23,20 @@ const CODEX_OAUTH_PORT = 1455;
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000;
 
 /**
+ * Escape HTML special characters to prevent XSS in OAuth callback pages
+ * @param {string} str - Untrusted string to escape
+ * @returns {string} HTML-safe string
+ */
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
  * Generate PKCE code verifier and challenge
  */
 function generatePKCE() {
@@ -204,7 +218,7 @@ const HTML_ERROR = (error) => `<!doctype html>
     <div class="container">
       <h1>Authorization Failed</h1>
       <p>An error occurred during authorization.</p>
-      <div class="error">${error}</div>
+      <div class="error">${escapeHtml(error)}</div>
     </div>
   </body>
 </html>`;

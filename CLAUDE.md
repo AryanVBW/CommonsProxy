@@ -151,6 +151,11 @@ npm run test:cache-control # Cache control field stripping
 
 # Run strategy unit tests (no server required)
 node tests/test-strategies.cjs
+
+# Run all offline unit tests (no server required)
+node tests/test-strategies.cjs          # 89 tests - Account selection strategies
+node tests/test-format-converters.cjs   # 85 tests - Format conversion
+node tests/test-providers.cjs           # 97 tests - Provider registry, auth, JWT
 ```
 
 ## Architecture
@@ -175,6 +180,7 @@ src/
 │   ├── session-manager.js      # Session ID derivation for caching
 │   ├── rate-limit-parser.js    # Parse reset times from headers/errors
 │   ├── request-builder.js      # Build API request payloads
+│   ├── retry-utils.js          # Shared retry logic (backoff, error classification, account selection)
 │   ├── sse-parser.js           # Parse SSE for non-streaming
 │   ├── sse-streamer.js         # Stream SSE events in real-time
 │   ├── message-handler.js      # Non-streaming message handling
@@ -271,6 +277,7 @@ public/
 - **src/server.js**: Express server exposing Anthropic-compatible endpoints (`/v1/messages`, `/v1/models`, `/health`, `/account-limits`) and mounting WebUI
 - **src/webui/index.js**: WebUI backend handling API routes (`/api/*`) for config, accounts, and logs
 - **src/cloudcode/**: Cloud Code API client with retry/failover logic, streaming and non-streaming support
+  - `retry-utils.js`: Shared retry logic extracted from both handlers — `calculateSmartBackoff()`, `classifyRetryError()`, `selectAccountForAttempt()`, `handleHttpError()`
   - `model-api.js`: Model listing, quota retrieval (`getModelQuotas()`), and subscription tier detection (`getSubscriptionTier()`)
 - **src/account-manager/**: Multi-account pool with configurable selection strategies, rate limit handling, and automatic cooldown
   - Strategies: `sticky` (cache-optimized), `round-robin` (load-balanced), `hybrid` (smart distribution)
@@ -343,7 +350,7 @@ Each account object in `accounts.json` contains:
 **Cross-Model Thinking Signatures:**
 - Claude and Gemini use incompatible thinking signatures
 - When switching models mid-conversation, incompatible signatures are detected and dropped
-- Signature cache tracks model family ('claude' or 'gemini') for each signature
+- Signature cache tracks model family ('claude' or 'gemini') for each signature (bounded to 10,000 entries max)
 - `hasGeminiHistory()` detects Gemini→Claude cross-model scenarios
 - Thinking recovery (`closeToolLoopForThinking()`) injects synthetic messages to close interrupted tool loops
 - For Gemini targets: strict validation - drops unknown or mismatched signatures
@@ -389,10 +396,10 @@ Each account object in `accounts.json` contains:
 - **Accessibility**:
   - ARIA labels on search inputs and icon buttons
   - Keyboard navigation support (Escape to clear search)
-- **Security**: Optional password protection via `WEBUI_PASSWORD` env var
+- **Security**: Optional password protection via `WEBUI_PASSWORD` env var, uses constant-time comparison to prevent timing attacks
 - **Config Redaction**: Sensitive values (passwords, tokens) are redacted in API responses
 - **Smart Refresh**: Client-side polling with ±20% jitter and tab visibility detection (3x slower when hidden)
-- **i18n Support**: English, Chinese (中文), Indonesian (Bahasa), Portuguese (PT-BR)
+- **i18n Support**: English, Chinese (中文), Indonesian (Bahasa), Portuguese (PT-BR), Turkish (Türkçe)
 
 ## Testing Notes
 
@@ -400,6 +407,15 @@ Each account object in `accounts.json` contains:
 - Tests are CommonJS files (`.cjs`) that make HTTP requests to the local proxy
 - Shared test utilities are in `tests/helpers/http-client.cjs`
 - Test runner supports filtering: `node tests/run-all.cjs <filter>` to run matching tests
+
+**Offline Unit Tests (no server required):**
+```bash
+node tests/test-strategies.cjs          # 89 tests - Account selection strategies
+node tests/test-format-converters.cjs   # 85 tests - Format conversion (schema, signatures, content)
+node tests/test-providers.cjs           # 97 tests - Provider registry, auth, rate limit parsing, JWT
+```
+
+These tests use dynamic `await import()` to load ESM modules from CJS test files. They include custom assertion helpers (`assertEqual`, `assertTrue`, `assertDeepEqual`, `assertThrows`, `assertMatch`, etc.).
 
 ## Code Organization
 
@@ -427,10 +443,12 @@ Each account object in `accounts.json` contains:
 - `formatDuration(ms)` - Format milliseconds as "1h23m45s"
 - `sleep(ms)` - Promise-based delay
 - `isNetworkError(error)` - Check if error is a transient network error
+- `safeCompare(a, b)` - Constant-time string comparison (timing-attack safe)
 
 **Data Persistence:**
 - Subscription and quota data are automatically fetched when `/account-limits` is called
 - Updated data is saved to `accounts.json` asynchronously (non-blocking)
+- File writes are atomic (temp file + rename) and serialized via `async-mutex`
 - On server restart, accounts load with last known subscription/quota state
 - Quota is refreshed on each WebUI poll (default: 30s with jitter)
 
@@ -552,6 +570,27 @@ Dashboard is split into three modules for maintainability:
    - Filter types: time range (1h/6h/24h/7d/all), display mode, family/model selection
 
 Each module is well-documented with JSDoc comments.
+
+## Security
+
+- **CORS**: Restricted to localhost origins only (`/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/`)
+- **Timing Attacks**: All password/API key comparisons use `safeCompare()` from `src/utils/helpers.js` (constant-time)
+- **XSS Protection**: Codex OAuth error page uses `escapeHtml()` for error parameter; log viewer uses `x-text` (not `x-html`)
+- **API Key Logging**: Provider API keys are logged as `sha256(key).slice(0,8)` hash, never as plaintext or prefix
+- **Test Endpoint**: `POST /test` only available when `NODE_ENV !== 'production'`
+- **SSE Password**: WebUI password auth via query param is restricted to `/api/logs/stream` only (EventSource limitation); all other endpoints use the `x-webui-password` header
+- **WebUI Password**: Optional via `WEBUI_PASSWORD` env var, constant-time comparison
+
+## Reliability
+
+- **Atomic File Writes**: `accounts.json` is written via temp file + `rename()` for POSIX atomicity, with `async-mutex` serialization to prevent concurrent writes
+- **Debounced Saves**: `saveToDisk()` uses a 500ms debounce collapse window with resolver arrays to batch rapid writes
+- **SSE Buffer Flush**: Both `sse-parser.js` and `sse-streamer.js` flush `TextDecoder` and process remaining buffer data after the read loop exits
+- **stop_reason Ordering**: Response converter checks `hasToolCalls` before `STOP` to prevent incorrect stop reasons
+- **Wall-Clock Retry Cap**: `MAX_TOTAL_RETRY_TIME_MS` (10 min) prevents infinite retry loops
+- **Upstream Timeouts**: All `fetch()` calls use `AbortController` with `UPSTREAM_REQUEST_TIMEOUT_MS` (5 min)
+- **OAuth Flow Cleanup**: Pending OAuth flows (Google, Copilot, Codex) are automatically cleaned up after 10 minutes via periodic sweep interval
+- **Batch Account Imports**: `addAccountsBatch()` loads accounts once, applies all changes in memory, saves once (O(1) I/O instead of O(n))
 
 ## Maintenance
 

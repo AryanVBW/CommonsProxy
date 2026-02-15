@@ -9,8 +9,27 @@ import { join } from 'path';
 import { config } from './config.js';
 
 /**
- * Get the Cloud Code IDE database path based on the current platform.
- * - macOS: ~/Library/Application Support/Windsurf/... (or Cursor, etc.)
+ * Get the Antigravity database path based on the current platform.
+ * - macOS: ~/Library/Application Support/Antigravity/...
+ * - Windows: ~/AppData/Roaming/Antigravity/...
+ * - Linux/other: ~/.config/Antigravity/...
+ * @returns {string} Full path to the Antigravity state database
+ */
+function getAntigravityDbPath() {
+    const home = homedir();
+    switch (platform()) {
+        case 'darwin':
+            return join(home, 'Library/Application Support/Antigravity/User/globalStorage/state.vscdb');
+        case 'win32':
+            return join(home, 'AppData/Roaming/Antigravity/User/globalStorage/state.vscdb');
+        default: // linux, freebsd, etc.
+            return join(home, '.config/Antigravity/User/globalStorage/state.vscdb');
+    }
+}
+
+/**
+ * Get the Cloud Code IDE database path based on the current platform (legacy Windsurf fallback).
+ * - macOS: ~/Library/Application Support/Windsurf/...
  * - Windows: ~/AppData/Roaming/Windsurf/...
  * - Linux/other: ~/.config/Windsurf/...
  * @returns {string} Full path to the IDE state database
@@ -29,13 +48,69 @@ function getCloudCodeDbPath() {
 
 /**
  * Generate platform-specific User-Agent string.
- * @returns {string} User-Agent in format "commons-proxy/version os/arch"
+ * Mimics the Antigravity binary's User-Agent format.
+ * @returns {string} User-Agent in format "antigravity/version os/arch"
  */
 function getPlatformUserAgent() {
     const os = platform();
     const architecture = arch();
-    return `commons-proxy/1.0.0 ${os}/${architecture}`;
+    return `antigravity/1.16.5 ${os}/${architecture}`;
 }
+
+// --- IDE Type / Platform / Plugin Type Enums ---
+// Numeric values as expected by Cloud Code API
+// Reference: Antigravity binary analysis - google.internal.cloud.code.v1internal.ClientMetadata
+
+// IDE Type enum
+export const IDE_TYPE = {
+    UNSPECIFIED: 0,
+    JETSKI: 10,        // Internal codename for Gemini CLI
+    ANTIGRAVITY: 9,
+    PLUGINS: 7
+};
+
+// Platform enum (as specified in Antigravity binary)
+export const PLATFORM = {
+    UNSPECIFIED: 0,
+    DARWIN_AMD64: 1,
+    DARWIN_ARM64: 2,
+    LINUX_AMD64: 3,
+    LINUX_ARM64: 4,
+    WINDOWS_AMD64: 5
+};
+
+// Plugin type enum (as specified in Antigravity binary)
+export const PLUGIN_TYPE = {
+    UNSPECIFIED: 0,
+    CLOUD_CODE: 1,
+    GEMINI: 2
+};
+
+/**
+ * Get the platform enum value based on the current OS.
+ * @returns {number} Platform enum value
+ */
+function getPlatformEnum() {
+    const os = platform();
+    const architecture = arch();
+
+    if (os === 'darwin') {
+        return architecture === 'arm64' ? PLATFORM.DARWIN_ARM64 : PLATFORM.DARWIN_AMD64;
+    } else if (os === 'linux') {
+        return architecture === 'arm64' ? PLATFORM.LINUX_ARM64 : PLATFORM.LINUX_AMD64;
+    } else if (os === 'win32') {
+        return PLATFORM.WINDOWS_AMD64;
+    }
+    return PLATFORM.UNSPECIFIED;
+}
+
+// Centralized client metadata (used in request bodies for loadCodeAssist, onboardUser, etc.)
+// Using numeric enum values as expected by the Cloud Code API
+export const CLIENT_METADATA = {
+    ideType: IDE_TYPE.ANTIGRAVITY,   // 9 - identifies as Antigravity client
+    platform: getPlatformEnum(),      // Runtime platform detection
+    pluginType: PLUGIN_TYPE.GEMINI    // 2
+};
 
 // Cloud Code API endpoints (in fallback order)
 const CLOUDCODE_ENDPOINT_DAILY = 'https://daily-cloudcode-pa.googleapis.com';
@@ -51,14 +126,10 @@ export const CLOUDCODE_ENDPOINT_FALLBACKS = [
 export const ANTIGRAVITY_ENDPOINT_FALLBACKS = CLOUDCODE_ENDPOINT_FALLBACKS;
 
 // Required headers for Cloud Code API requests
+// Strictly matches the generic 'u' method in main.js (Antigravity binary)
 export const CLOUDCODE_HEADERS = {
     'User-Agent': getPlatformUserAgent(),
-    'X-Goog-Api-Client': 'google-cloud-sdk vscode_cloudshelleditor/0.1',
-    'Client-Metadata': JSON.stringify({
-        ideType: 'IDE_UNSPECIFIED',
-        platform: 'PLATFORM_UNSPECIFIED',
-        pluginType: 'GEMINI'
-    })
+    'Content-Type': 'application/json'
 };
 
 // Endpoint order for loadCodeAssist (prod first)
@@ -99,18 +170,21 @@ export const USAGE_HISTORY_PATH = join(
     '.config/commons-proxy/usage-history.json'
 );
 
-// Cloud Code IDE database path (for legacy single-account token extraction)
-// Uses platform-specific path detection
+// Cloud Code IDE database paths
+// Primary: Antigravity app database (preferred for token extraction)
+// Fallback: Windsurf/Cloud Code IDE database (legacy)
+export const ANTIGRAVITY_DB_PATH = getAntigravityDbPath();
 export const CLOUDCODE_DB_PATH = getCloudCodeDbPath();
-export const ANTIGRAVITY_DB_PATH = CLOUDCODE_DB_PATH; // Legacy alias
 
 export const DEFAULT_COOLDOWN_MS = config?.defaultCooldownMs || (10 * 1000); // From config or 10 seconds
 export const MAX_RETRIES = config?.maxRetries || 5; // From config or 5
 export const MAX_EMPTY_RESPONSE_RETRIES = 2; // Max retries for empty API responses (from upstream)
 export const MAX_ACCOUNTS = config?.maxAccounts || 10; // From config or 10
+export const UPSTREAM_REQUEST_TIMEOUT_MS = config?.upstreamRequestTimeoutMs || 300000; // 5 minutes - abort if upstream hangs
 
 // Rate limit wait thresholds
 export const MAX_WAIT_BEFORE_ERROR_MS = config?.maxWaitBeforeErrorMs || 120000; // From config or 2 minutes
+export const MAX_TOTAL_RETRY_TIME_MS = config?.maxTotalRetryTimeMs || 600000; // 10 minutes wall-clock cap for entire retry loop
 
 // Retry deduplication - prevents thundering herd on concurrent rate limits
 export const RATE_LIMIT_DEDUP_WINDOW_MS = config?.rateLimitDedupWindowMs || 2000; // 2 seconds
@@ -220,10 +294,9 @@ export const OAUTH_CONFIG = {
 };
 export const OAUTH_REDIRECT_URI = `http://localhost:${OAUTH_CONFIG.callbackPort}/oauth-callback`;
 
-// Minimal system instruction for Cloud Code API
-// Only includes the essential identity portion to reduce token usage and improve response quality
+// Minimal system instruction for Cloud Code API (Antigravity identity)
 // Reference: GitHub issue #76, CLIProxyAPI, gcli2api
-export const CLOUDCODE_SYSTEM_INSTRUCTION = `You are a powerful agentic AI coding assistant. You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
+export const CLOUDCODE_SYSTEM_INSTRUCTION = `You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**`;
 export const ANTIGRAVITY_SYSTEM_INSTRUCTION = CLOUDCODE_SYSTEM_INSTRUCTION; // Legacy alias
 
 // Model fallback mapping - maps primary model to fallback when quota exhausted
@@ -363,6 +436,11 @@ export const PROVIDER_COLORS = {
 };
 
 export default {
+    // Enum exports
+    IDE_TYPE,
+    PLATFORM,
+    PLUGIN_TYPE,
+    CLIENT_METADATA,
     // New exports
     CLOUDCODE_ENDPOINT_FALLBACKS,
     CLOUDCODE_HEADERS,
@@ -388,7 +466,9 @@ export default {
     MAX_RETRIES,
     MAX_EMPTY_RESPONSE_RETRIES,
     MAX_ACCOUNTS,
+    UPSTREAM_REQUEST_TIMEOUT_MS,
     MAX_WAIT_BEFORE_ERROR_MS,
+    MAX_TOTAL_RETRY_TIME_MS,
     RATE_LIMIT_DEDUP_WINDOW_MS,
     RATE_LIMIT_STATE_RESET_MS,
     FIRST_RETRY_DELAY_MS,

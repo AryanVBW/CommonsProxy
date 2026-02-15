@@ -69,12 +69,12 @@ function load() {
 }
 
 /**
- * Save history to disk
+ * Save history to disk (async, non-blocking)
  */
-function save() {
+async function save() {
     if (!isDirty) return;
     try {
-        fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+        await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history, null, 2));
         isDirty = false;
     } catch (err) {
         console.error('[UsageStats] Failed to save history:', err);
@@ -143,13 +143,22 @@ function setupMiddleware(app) {
 
     // Auto-save every minute
     setInterval(() => {
-        save();
+        save().catch(err => console.error('[UsageStats] Auto-save error:', err));
         prune();
     }, 60 * 1000);
 
-    // Save on exit
-    process.on('SIGINT', () => { save(); process.exit(); });
-    process.on('SIGTERM', () => { save(); process.exit(); });
+    // Save on exit (use sync write for shutdown to ensure data is flushed)
+    const saveSync = () => {
+        if (!isDirty) return;
+        try {
+            fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+            isDirty = false;
+        } catch (err) {
+            console.error('[UsageStats] Failed to save history on exit:', err);
+        }
+    };
+    process.on('SIGINT', () => { saveSync(); process.exit(); });
+    process.on('SIGTERM', () => { saveSync(); process.exit(); });
 
     // Request interceptor
     // Track both Anthropic (/v1/messages) and OpenAI compatible (/v1/chat/completions) endpoints

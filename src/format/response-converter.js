@@ -85,14 +85,16 @@ export function convertGoogleToAnthropic(googleResponse, model) {
     }
 
     // Determine stop reason
+    // Check hasToolCalls FIRST - tool_use takes precedence over STOP/end_turn
+    // because Google API may return finishReason: 'STOP' even when there are tool calls
     const finishReason = firstCandidate.finishReason;
     let stopReason = 'end_turn';
-    if (finishReason === 'STOP') {
-        stopReason = 'end_turn';
+    if (finishReason === 'TOOL_USE' || hasToolCalls) {
+        stopReason = 'tool_use';
     } else if (finishReason === 'MAX_TOKENS') {
         stopReason = 'max_tokens';
-    } else if (finishReason === 'TOOL_USE' || hasToolCalls) {
-        stopReason = 'tool_use';
+    } else if (finishReason === 'STOP') {
+        stopReason = 'end_turn';
     }
 
     // Extract usage metadata

@@ -5,6 +5,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Prevent accidental file serving from public/
+public/*.pdf
+
 # Logs
 *.log
 log.txt
@@ -33,3 +36,7 @@ tests/utils/*.jpeg
 # Build output
 dist/
 build/
+
+# Reference codebases (not part of this project)
+_antigravity-claude-proxy-copy/
+opencode/

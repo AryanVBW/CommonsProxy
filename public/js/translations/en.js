@@ -43,6 +43,7 @@ window.translations.en = {
     enabled: "ENABLED",
     health: "STATUS",
     accountEmail: "ACCOUNT (EMAIL)",
+    provider: "PROVIDER",
     source: "SOURCE",
     projectId: "PROJECT ID",
     sessionState: "SESSION STATE",
@@ -71,6 +72,7 @@ window.translations.en = {
     // Dashboard
     linkedAccounts: "Linked Accounts",
     noSignal: "NO SIGNAL DETECTED",
+    noModelsDesc: "No model data available. Add accounts to see available models and quota information.",
     establishingUplink: "ESTABLISHING UPLINK...",
     goToAccounts: "Go to Accounts",
     // Settings - Models
@@ -205,6 +207,8 @@ window.translations.en = {
     timeM: "M",
     familyClaude: "Claude",
     familyGemini: "Gemini",
+    familyGpt: "GPT",
+    familyO1: "O-series",
     familyOther: "Other",
     enabledStatus: "enabled",
     disabledStatus: "disabled",
@@ -221,6 +225,8 @@ window.translations.en = {
     allCaps: "ALL",
     claudeCaps: "CLAUDE",
     geminiCaps: "GEMINI",
+    gptCaps: "GPT",
+    o1Caps: "O-SERIES",
     modelMapping: "Mapping (Target Model ID)",
     systemInfo: "System Information",
     refresh: "Refresh",

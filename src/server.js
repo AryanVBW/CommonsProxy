@@ -18,7 +18,7 @@ import { forceRefresh } from './auth/token-extractor.js';
 import { REQUEST_BODY_LIMIT } from './constants.js';
 import { AccountManager } from './account-manager/index.js';
 import { clearThinkingSignatureCache } from './format/signature-cache.js';
-import { formatDuration } from './utils/helpers.js';
+import { formatDuration, safeCompare } from './utils/helpers.js';
 import { logger } from './utils/logger.js';
 import usageStats from './modules/usage-stats.js';
 
@@ -76,7 +76,17 @@ async function ensureInitialized() {
 }
 
 // Middleware
-app.use(cors());
+// Restrict CORS to localhost origins to prevent cross-site request attacks
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (same-origin, curl, server-to-server, etc.)
+        if (!origin) return callback(null, true);
+        // Allow localhost origins on any port
+        const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/.test(origin);
+        callback(null, isLocalhost);
+    },
+    credentials: true
+}));
 app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
 
 // API Key authentication middleware for /v1/* endpoints
@@ -96,7 +106,7 @@ app.use('/v1', (req, res, next) => {
         providedKey = xApiKey;
     }
 
-    if (!providedKey || providedKey !== config.apiKey) {
+    if (!providedKey || !safeCompare(providedKey, config.apiKey)) {
         logger.warn(`[API] Unauthorized request from ${req.ip}, invalid API key`);
         return res.status(401).json({
             type: 'error',
@@ -217,22 +227,17 @@ app.use((req, res, next) => {
 });
 
 /**
- * Silent handler for Claude Code CLI root POST requests
- * Claude Code sends heartbeat/event requests to POST / which we don't need
- */
-app.post('/', (req, res) => {
-    res.status(200).json({ status: 'ok' });
-});
-
-/**
  * Test endpoint - Clear thinking signature cache
  * Used for testing cold cache scenarios in cross-model tests
+ * Only available in non-production environments
  */
-app.post('/test/clear-signature-cache', (req, res) => {
-    clearThinkingSignatureCache();
-    logger.debug('[Test] Cleared thinking signature cache');
-    res.json({ success: true, message: 'Thinking signature cache cleared' });
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.post('/test/clear-signature-cache', (req, res) => {
+        clearThinkingSignatureCache();
+        logger.debug('[Test] Cleared thinking signature cache');
+        res.json({ success: true, message: 'Thinking signature cache cleared' });
+    });
+}
 
 /**
  * Health check endpoint - Detailed status
@@ -260,6 +265,7 @@ app.get('/health', async (req, res) => {
 
                 const baseInfo = {
                     email: account.email,
+                    provider: account.provider || 'google',
                     lastUsed: account.lastUsed ? new Date(account.lastUsed).toISOString() : null,
                     modelRateLimits: account.modelRateLimits || {},
                     rateLimitCooldownRemaining: soonestReset ? Math.max(0, soonestReset - Date.now()) : 0
@@ -277,17 +283,41 @@ app.get('/health', async (req, res) => {
 
                 try {
                     const token = await accountManager.getTokenForAccount(account);
-                    const projectId = account.subscription?.projectId || null;
-                    const quotas = await getModelQuotas(token, projectId);
+                    const providerId = account.provider || 'google';
+                    let formattedQuotas = {};
 
-                    // Format quotas for readability
-                    const formattedQuotas = {};
-                    for (const [modelId, info] of Object.entries(quotas)) {
-                        formattedQuotas[modelId] = {
-                            remaining: info.remainingFraction !== null ? `${Math.round(info.remainingFraction * 100)}%` : 'N/A',
-                            remainingFraction: info.remainingFraction,
-                            resetTime: info.resetTime || null
-                        };
+                    if (providerId === 'google') {
+                        // Google Cloud Code: use getModelQuotas
+                        const projectId = account.subscription?.projectId || null;
+                        const quotas = await getModelQuotas(token, projectId);
+
+                        for (const [modelId, info] of Object.entries(quotas)) {
+                            formattedQuotas[modelId] = {
+                                remaining: info.remainingFraction !== null ? `${Math.round(info.remainingFraction * 100)}%` : 'N/A',
+                                remainingFraction: info.remainingFraction,
+                                resetTime: info.resetTime || null
+                            };
+                        }
+                    } else {
+                        // Non-Google providers: use provider-aware quota fetching
+                        try {
+                            const { getProviderForAccount } = await import('./providers/index.js');
+                            const provider = getProviderForAccount(account);
+                            const quotas = await provider.getQuotas(account, token);
+                            const models = quotas.models || quotas;
+
+                            for (const [modelId, info] of Object.entries(models)) {
+                                formattedQuotas[modelId] = {
+                                    remaining: info.remainingFraction !== null && info.remainingFraction !== undefined
+                                        ? `${Math.round(info.remainingFraction * 100)}%` : 'N/A',
+                                    remainingFraction: info.remainingFraction ?? null,
+                                    resetTime: info.resetTime || null
+                                };
+                            }
+                        } catch (providerErr) {
+                            logger.debug(`[Server] Provider quota fetch failed for ${account.email}: ${providerErr.message}`);
+                            // Non-critical — return empty quotas rather than failing the account
+                        }
                     }
 
                     return {
@@ -633,8 +663,7 @@ app.post('/refresh-token', async (req, res) => {
         const token = await forceRefresh();
         res.json({
             status: 'ok',
-            message: 'Token caches cleared and refreshed',
-            tokenPrefix: token.substring(0, 10) + '...'
+            message: 'Token caches cleared and refreshed'
         });
     } catch (error) {
         res.status(500).json({

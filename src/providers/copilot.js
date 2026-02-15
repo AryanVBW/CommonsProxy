@@ -99,10 +99,17 @@ export class CopilotProvider extends BaseProvider {
      */
     async getQuotas(account, token) {
         // Copilot doesn't expose quota/usage API
-        // Return default models with full availability
+        // Return current Copilot models with full availability
+        // Updated 2026-02-15 from models.dev/api.json
         const defaultModels = [
-            'gpt-4o', 'gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo',
-            'claude-3.5-sonnet', 'o1-preview', 'o1-mini'
+            'claude-sonnet-4', 'claude-sonnet-4.5', 'claude-haiku-4.5',
+            'claude-opus-41', 'claude-opus-4.5', 'claude-opus-4.6',
+            'gpt-4o', 'gpt-4.1',
+            'gpt-5', 'gpt-5-mini', 'gpt-5.1',
+            'gpt-5.1-codex', 'gpt-5.1-codex-mini', 'gpt-5.1-codex-max',
+            'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.3-codex',
+            'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview',
+            'grok-code-fast-1'
         ];
 
         const models = {};
@@ -160,17 +167,33 @@ export class CopilotProvider extends BaseProvider {
      * @returns {Promise<Array>} List of available models
      */
     async getAvailableModels(account, token) {
+        // Updated 2026-02-15 from models.dev/api.json → "github-copilot" → "models"
         return [
+            // Claude (Anthropic)
+            { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', family: 'claude-sonnet' },
+            { id: 'claude-sonnet-4.5', name: 'Claude Sonnet 4.5', family: 'claude-sonnet' },
+            { id: 'claude-haiku-4.5', name: 'Claude Haiku 4.5', family: 'claude-haiku' },
+            { id: 'claude-opus-41', name: 'Claude Opus 4.1', family: 'claude-opus' },
+            { id: 'claude-opus-4.5', name: 'Claude Opus 4.5', family: 'claude-opus' },
+            { id: 'claude-opus-4.6', name: 'Claude Opus 4.6', family: 'claude-opus' },
+            // GPT (OpenAI)
             { id: 'gpt-4o', name: 'GPT-4o', family: 'gpt' },
-            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', family: 'gpt' },
-            { id: 'gpt-4', name: 'GPT-4', family: 'gpt' },
-            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', family: 'gpt' },
-            { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', family: 'claude' },
-            { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', family: 'claude' },
-            { id: 'claude-haiku-3.5', name: 'Claude Haiku 3.5', family: 'claude' },
-            { id: 'o1-preview', name: 'o1 Preview', family: 'o1' },
-            { id: 'o1-mini', name: 'o1 Mini', family: 'o1' },
-            { id: 'o3-mini', name: 'o3 Mini', family: 'o3' }
+            { id: 'gpt-4.1', name: 'GPT-4.1', family: 'gpt' },
+            { id: 'gpt-5', name: 'GPT-5', family: 'gpt' },
+            { id: 'gpt-5-mini', name: 'GPT-5 Mini', family: 'gpt-mini' },
+            { id: 'gpt-5.1', name: 'GPT-5.1', family: 'gpt' },
+            { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex', family: 'gpt-codex' },
+            { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini', family: 'gpt-codex' },
+            { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max', family: 'gpt-codex' },
+            { id: 'gpt-5.2', name: 'GPT-5.2', family: 'gpt' },
+            { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex', family: 'gpt-codex' },
+            { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', family: 'gpt-codex' },
+            // Gemini (Google)
+            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', family: 'gemini-pro' },
+            { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', family: 'gemini-flash' },
+            { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', family: 'gemini-pro' },
+            // Grok (xAI)
+            { id: 'grok-code-fast-1', name: 'Grok Code Fast 1', family: 'grok' }
         ];
     }
 
@@ -202,6 +225,62 @@ export class CopilotProvider extends BaseProvider {
         }
 
         return null;
+    }
+
+    /**
+     * Refresh Copilot credentials by re-validating the GitHub token.
+     * GitHub OAuth tokens from device auth don't have a refresh token mechanism,
+     * but we can verify the token is still valid and attempt to get a fresh
+     * Copilot session token from the internal token endpoint.
+     *
+     * @param {Object} account - Account with apiKey (GitHub access token)
+     * @returns {Promise<Object>} Updated account object
+     */
+    async refreshCredentials(account) {
+        if (!account.apiKey) {
+            return account;
+        }
+
+        try {
+            // Step 1: Verify the GitHub token is still valid
+            const userResponse = await fetch('https://api.github.com/user', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${account.apiKey}`,
+                    'Accept': 'application/vnd.github+json',
+                    'User-Agent': 'commons-proxy/2.0.0',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                }
+            });
+
+            if (!userResponse.ok) {
+                const errorText = await userResponse.text();
+                throw new Error(`GitHub token expired or revoked (${userResponse.status}): ${errorText}`);
+            }
+
+            // Step 2: Exchange for a fresh Copilot session token to verify Copilot access
+            const tokenUrl = this.config.tokenUrl || COPILOT_TOKEN_URL;
+            const tokenResponse = await fetch(tokenUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `token ${account.apiKey}`,
+                    'Accept': 'application/json',
+                    'User-Agent': 'commons-proxy/2.0.0'
+                }
+            });
+
+            if (!tokenResponse.ok) {
+                this.debug(`Copilot token exchange returned ${tokenResponse.status} — GitHub token may lack Copilot access`);
+                // Token is valid for GitHub but may not have Copilot access
+                // Don't throw — the account can still be used with direct Bearer auth
+            }
+
+            this.debug('Credentials refreshed successfully');
+            return account;
+        } catch (error) {
+            this.error('Failed to refresh Copilot credentials', error);
+            throw error;
+        }
     }
 
     /**
@@ -367,6 +446,7 @@ export class CopilotProvider extends BaseProvider {
     static buildCopilotHeaders(githubToken, options = {}) {
         const headers = {
             'Authorization': `Bearer ${githubToken}`,
+            'Content-Type': 'application/json',
             'User-Agent': 'commons-proxy/2.0.0',
             'Openai-Intent': 'conversation-edits',
             'x-initiator': options.isAgent ? 'agent' : 'user'

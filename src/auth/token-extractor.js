@@ -1,8 +1,8 @@
 /**
  * Token Extractor Module
- * Extracts OAuth tokens from Cloud Code IDE's SQLite database
+ * Extracts OAuth tokens from Antigravity's SQLite database
  *
- * The database is automatically updated by the IDE when tokens refresh,
+ * The database is automatically updated by Antigravity when tokens refresh,
  * so this approach doesn't require any manual intervention.
  */
 
@@ -18,7 +18,7 @@ let cachedToken = null;
 let tokenExtractedAt = null;
 
 /**
- * Extract the chat params from Cloud Code IDE's HTML page (fallback method)
+ * Extract the chat params from Antigravity's HTML page (fallback method)
  */
 async function extractChatParams() {
     try {
@@ -28,7 +28,7 @@ async function extractChatParams() {
         // Find the base64-encoded chatParams in the HTML
         const match = html.match(/window\.chatParams\s*=\s*'([^']+)'/);
         if (!match) {
-            throw new Error('Could not find chatParams in Cloud Code IDE page');
+            throw new Error('Could not find chatParams in Antigravity page');
         }
 
         // Decode base64
@@ -40,8 +40,8 @@ async function extractChatParams() {
     } catch (error) {
         if (error.code === 'ECONNREFUSED') {
             throw new Error(
-                `Cannot connect to Cloud Code IDE on port ${CLOUDCODE_AUTH_PORT}. ` +
-                'Make sure the IDE is running.'
+                `Cannot connect to Antigravity on port ${CLOUDCODE_AUTH_PORT}. ` +
+                'Make sure Antigravity is running.'
             );
         }
         throw error;
@@ -75,8 +75,8 @@ async function getTokenData() {
     }
 
     throw new Error(
-        'Could not extract token from Cloud Code IDE. ' +
-        'Make sure the IDE is running and you are logged in.'
+        'Could not extract token from Antigravity. ' +
+        'Make sure Antigravity is running and you are logged in.'
     );
 }
 

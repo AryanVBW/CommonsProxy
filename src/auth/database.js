@@ -12,7 +12,7 @@
  */
 
 import { createRequire } from 'module';
-import { CLOUDCODE_DB_PATH } from '../constants.js';
+import { ANTIGRAVITY_DB_PATH, CLOUDCODE_DB_PATH } from '../constants.js';
 import { isModuleVersionError, attemptAutoRebuild, clearRequireCache } from '../utils/native-module-helper.js';
 import { logger } from '../utils/logger.js';
 import { NativeModuleError } from '../errors.js';
@@ -82,12 +82,47 @@ function loadDatabaseModule() {
 }
 
 /**
- * Query Cloud Code IDE database for authentication status
+ * Query IDE database for authentication status.
+ * Tries Antigravity database (antigravityAuthStatus key) first,
+ * then falls back to Windsurf/Cloud Code IDE (cloudcodeAuthStatus key).
  * @param {string} [dbPath] - Optional custom database path
  * @returns {Object} Parsed auth data with apiKey, email, name, etc.
  * @throws {Error} If database doesn't exist, query fails, or no auth status found
  */
-export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
+export function getAuthStatus(dbPath) {
+    // If a specific dbPath was provided, query it directly
+    if (dbPath) {
+        return queryAuthStatus(dbPath);
+    }
+
+    // Try Antigravity DB first (primary)
+    try {
+        return queryAuthStatus(ANTIGRAVITY_DB_PATH, 'antigravityAuthStatus');
+    } catch (e) {
+        logger.debug(`[Database] Antigravity DB not available: ${e.message}`);
+    }
+
+    // Fall back to Windsurf/Cloud Code IDE DB
+    try {
+        return queryAuthStatus(CLOUDCODE_DB_PATH, 'cloudcodeAuthStatus');
+    } catch (e) {
+        logger.debug(`[Database] Cloud Code IDE DB not available: ${e.message}`);
+    }
+
+    throw new Error(
+        'No auth status found in any IDE database. ' +
+        'Make sure Antigravity or a Cloud Code IDE is installed and you are logged in.'
+    );
+}
+
+/**
+ * Query a specific database for authentication status
+ * @param {string} dbPath - Path to the database
+ * @param {string} [authKey='antigravityAuthStatus'] - The key to query for auth status
+ * @returns {Object} Parsed auth data with apiKey, email, name, etc.
+ * @throws {Error} If database doesn't exist, query fails, or no auth status found
+ */
+function queryAuthStatus(dbPath, authKey = 'antigravityAuthStatus') {
     const Db = loadDatabaseModule();
     let db;
     try {
@@ -97,11 +132,20 @@ export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
             fileMustExist: true
         });
 
-        // Prepare and execute query
-        const stmt = db.prepare(
-            "SELECT value FROM ItemTable WHERE key = 'cloudcodeAuthStatus'"
+        // Try the specified key first
+        let stmt = db.prepare(
+            `SELECT value FROM ItemTable WHERE key = '${authKey}'`
         );
-        const row = stmt.get();
+        let row = stmt.get();
+
+        // If specified key not found, try the other key as fallback
+        if (!row || !row.value) {
+            const fallbackKey = authKey === 'antigravityAuthStatus' ? 'cloudcodeAuthStatus' : 'antigravityAuthStatus';
+            stmt = db.prepare(
+                `SELECT value FROM ItemTable WHERE key = '${fallbackKey}'`
+            );
+            row = stmt.get();
+        }
 
         if (!row || !row.value) {
             throw new Error('No auth status found in database');
@@ -120,7 +164,7 @@ export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
         if (error.code === 'SQLITE_CANTOPEN') {
             throw new Error(
                 `Database not found at ${dbPath}. ` +
-                'Make sure the Cloud Code IDE is installed and you are logged in.'
+                'Make sure the IDE is installed and you are logged in.'
             );
         }
         // Re-throw with context if not already our error
@@ -131,7 +175,7 @@ export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
         if (error instanceof NativeModuleError) {
             throw error;
         }
-        throw new Error(`Failed to read Cloud Code IDE database: ${error.message}`);
+        throw new Error(`Failed to read IDE database: ${error.message}`);
     } finally {
         // Always close database connection
         if (db) {
@@ -142,10 +186,24 @@ export function getAuthStatus(dbPath = CLOUDCODE_DB_PATH) {
 
 /**
  * Check if database exists and is accessible
+ * Tries Antigravity DB first, then Windsurf/Cloud Code IDE DB
  * @param {string} [dbPath] - Optional custom database path
  * @returns {boolean} True if database exists and can be opened
  */
-export function isDatabaseAccessible(dbPath = CLOUDCODE_DB_PATH) {
+export function isDatabaseAccessible(dbPath) {
+    if (dbPath) {
+        return checkDbAccessible(dbPath);
+    }
+    // Try Antigravity first, then Windsurf
+    return checkDbAccessible(ANTIGRAVITY_DB_PATH) || checkDbAccessible(CLOUDCODE_DB_PATH);
+}
+
+/**
+ * Check if a specific database path is accessible
+ * @param {string} dbPath - Path to the database
+ * @returns {boolean} True if database exists and can be opened
+ */
+function checkDbAccessible(dbPath) {
     let db;
     try {
         const Db = loadDatabaseModule();

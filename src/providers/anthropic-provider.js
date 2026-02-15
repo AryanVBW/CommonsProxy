@@ -6,6 +6,7 @@
  */
 
 import BaseProvider from './base-provider.js';
+import crypto from 'crypto';
 
 export class AnthropicProvider extends BaseProvider {
     constructor(config = {}) {
@@ -43,8 +44,9 @@ export class AnthropicProvider extends BaseProvider {
                 return { valid: false, error: `API key validation failed: ${error}` };
             }
 
-            // Anthropic doesn't provide email in API, use a placeholder
-            const email = account.email || `anthropic-${account.apiKey.slice(0, 8)}`;
+            // Anthropic doesn't provide email in API, use a hash-based identifier
+            const keyHash = crypto.createHash('sha256').update(account.apiKey).digest('hex').slice(0, 8);
+            const email = account.email || `anthropic-${keyHash}`;
 
             return { valid: true, email };
         } catch (error) {

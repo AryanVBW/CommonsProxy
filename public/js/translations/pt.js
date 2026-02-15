@@ -44,6 +44,7 @@ window.translations.pt = {
     enabled: "HABILITADO",
     health: "SAÚDE",
     accountEmail: "CONTA (EMAIL)",
+    provider: "PROVEDOR",
     source: "FONTE",
     projectId: "ID DO PROJETO",
     sessionState: "ESTADO DA SESSÃO",
@@ -71,6 +72,7 @@ window.translations.pt = {
     // Dashboard
     linkedAccounts: "Contas Vinculadas",
     noSignal: "SEM SINAL DETECTADO",
+    noModelsDesc: "Nenhum dado de modelo disponível. Adicione contas para ver modelos disponíveis e informações de cota.",
     establishingUplink: "ESTABELECENDO LINK...",
     goToAccounts: "Ir para Contas",
     // Settings - Models
@@ -184,6 +186,8 @@ window.translations.pt = {
     timeM: "M",
     familyClaude: "Claude",
     familyGemini: "Gemini",
+    familyGpt: "GPT",
+    familyO1: "Série O",
     familyOther: "Outro",
     enabledStatus: "habilitado",
     disabledStatus: "desabilitado",
@@ -200,6 +204,8 @@ window.translations.pt = {
     allCaps: "TODOS",
     claudeCaps: "CLAUDE",
     geminiCaps: "GEMINI",
+    gptCaps: "GPT",
+    o1Caps: "SÉRIE O",
     systemInfo: "Informações do Sistema",
     refresh: "Atualizar",
     runtimeConfig: "Configuração em Tempo de Execução",

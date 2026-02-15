@@ -83,7 +83,8 @@
 
                 <!-- Message: Clean & High Contrast -->
                 <span class="text-zinc-300 break-all group-hover:text-white transition-colors flex-1"
-                    x-html="log.message.replace(/\n/g, '<br>')"></span>
+                    style="white-space: pre-wrap"
+                    x-text="log.message"></span>
             </div>
         </template>
         <!-- Blinking Cursor -->

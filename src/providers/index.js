@@ -174,9 +174,11 @@ export function hasAuthProvider(providerId) {
 export const ProviderType = {
     CLOUDCODE: 'cloudcode',
     COPILOT: 'copilot',
+    OPENAI: 'openai',
     OPENROUTER: 'openrouter',
     ANTHROPIC: 'anthropic',
     GITHUB: 'github',
+    CODEX: 'codex',
     CUSTOM: 'custom'
 };
 

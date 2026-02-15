@@ -32,10 +32,31 @@ export class CodexProvider extends BaseProvider {
         }
 
         try {
-            // Try to parse JWT to extract account info
+            // Try to parse JWT to extract account info and check expiration
             if (token) {
                 const claims = parseJwtClaims(token);
                 if (claims) {
+                    // Check if JWT has expired
+                    if (claims.exp && typeof claims.exp === 'number') {
+                        const nowSeconds = Math.floor(Date.now() / 1000);
+                        if (claims.exp < nowSeconds) {
+                            // Token expired — try refresh if possible
+                            if (account.refreshToken) {
+                                this.debug('Access token expired, attempting refresh');
+                                try {
+                                    const tokens = await refreshCodexAccessToken(account.refreshToken);
+                                    if (tokens.access_token) {
+                                        const accountId = extractAccountId(tokens);
+                                        const email = `codex-${accountId || 'user'}@chatgpt`;
+                                        return { valid: true, email, refreshed: tokens };
+                                    }
+                                } catch (refreshError) {
+                                    return { valid: false, error: `Token expired and refresh failed: ${refreshError.message}` };
+                                }
+                            }
+                            return { valid: false, error: 'Access token expired and no refresh token available' };
+                        }
+                    }
                     const email = claims.email || `codex-${claims.sub || 'user'}@chatgpt`;
                     return { valid: true, email };
                 }

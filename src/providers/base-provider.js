@@ -95,6 +95,12 @@ export class BaseProvider {
     /**
      * Parse rate limit information from API response
      *
+     * NOTE: Provider subclasses implement this method with provider-specific
+     * header parsing (e.g., Anthropic's anthropic-ratelimit-* headers, OpenAI's
+     * x-ratelimit-* duration format). However, the current request pipeline in
+     * src/cloudcode/ uses rate-limit-parser.js instead. These implementations
+     * will be wired up when provider-specific request handling is added.
+     *
      * @param {Response} response - Fetch API response object
      * @param {Object} [errorData] - Optional parsed error data
      * @returns {Object|null} Rate limit info: { resetTime: Date, retryAfter: number }

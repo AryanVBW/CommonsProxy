@@ -92,6 +92,16 @@ npm install
 npm start
 ```
 
+### Auto-Configuration Script
+
+For a guided setup experience, run the included setup script after cloning:
+
+```bash
+./setup.sh
+```
+
+This script checks prerequisites (Node.js, npm), installs dependencies, configures Claude Code CLI settings, optionally sets up shell environment variables, and starts the proxy server.
+
 ### Option 3: Docker 🐳 (Recommended for Production)
 
 ```bash
@@ -214,6 +224,51 @@ commons-proxy accounts add --provider=google --no-browser
 3. Or CLI: `commons-proxy accounts add --provider=github`
 
 **Available Models**: GitHub Marketplace models (varies by account/region)
+
+---
+
+#### 🟧 GitHub Copilot (Device Authorization)
+
+**Best for**: Using Copilot-accessible models (GPT-4o, Claude Sonnet 4, o1, o3-mini) with an active Copilot subscription
+
+**Prerequisites**: GitHub account with active Copilot subscription (Individual, Business, or Enterprise)
+
+**Setup**:
+1. In WebUI: **Accounts** → **Add Account** → **GitHub Copilot**
+2. Follow the device authorization flow: visit `https://github.com/login/device` and enter the code shown
+3. Or CLI: `commons-proxy accounts add --provider=copilot`
+
+**Available Models**: GPT-4o, Claude Sonnet 4, o1-preview, o3-mini (varies by Copilot plan)
+
+---
+
+#### 🟩 ChatGPT Plus/Pro - Codex (OAuth)
+
+**Best for**: Using OpenAI Codex models with a ChatGPT Plus or Pro subscription
+
+**Prerequisites**: Active ChatGPT Plus or Pro subscription at [chatgpt.com](https://chatgpt.com)
+
+**Setup**:
+1. In WebUI: **Accounts** → **Add Account** → **ChatGPT Plus/Pro (Codex)**
+2. Complete OAuth via browser popup (PKCE flow) or device authorization
+3. Or CLI: `commons-proxy accounts add --provider=codex`
+
+**Available Models**: GPT-5 Codex, GPT-5.1 Codex (varies by subscription tier)
+
+---
+
+#### 🟣 OpenRouter (API Key)
+
+**Best for**: Unified access to 100+ models from multiple providers through a single API key
+
+**Prerequisites**: OpenRouter account at [openrouter.ai](https://openrouter.ai), API key with credits
+
+**Setup**:
+1. Get API key: https://openrouter.ai/keys
+2. In WebUI: **Accounts** → **Add Account** → **OpenRouter** → Paste key
+3. Or CLI: `commons-proxy accounts add --provider=openrouter`
+
+**Available Models**: 100+ models including Claude, GPT, Gemini, Llama, Mistral, and more
 
 ---
 
@@ -404,6 +459,17 @@ commons-proxy start --strategy=round-robin  # Load-balanced
 ```
 
 **Or via WebUI:** Settings → Server → Account Selection Strategy
+
+### Model Fallback
+
+When all accounts are exhausted for a requested model, the proxy can automatically fall back to an alternate model:
+
+```bash
+commons-proxy start --fallback
+# Or: FALLBACK=true commons-proxy start
+```
+
+Fallback mappings preserve thinking capability (thinking models fall back to other thinking models). Fallback is disabled on recursive calls to prevent infinite chains. Configure in the WebUI under Settings → Server.
 
 ### How It Works
 
@@ -637,6 +703,16 @@ Re-authenticate the account:
 commons-proxy accounts
 # Choose "Re-authenticate" for the invalid account
 ```
+
+---
+
+## Security
+
+- **WebUI Password**: Set `WEBUI_PASSWORD` to protect the management dashboard. Password comparison uses `crypto.timingSafeEqual()` to prevent timing attacks.
+- **API Key**: Set `API_KEY` to protect `/v1/*` API endpoints from unauthorized access.
+- **Bounded Caches**: Internal signature caches are bounded (max 10,000 entries) with LRU eviction to prevent memory exhaustion.
+- **Schema Depth Limits**: JSON schema sanitization enforces a depth limit of 50 to prevent stack overflow from deeply nested or recursive schemas.
+- **Config Redaction**: Sensitive values (tokens, API keys, passwords) are redacted in WebUI API responses.
 
 ---
 

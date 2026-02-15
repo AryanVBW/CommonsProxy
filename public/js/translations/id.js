@@ -59,6 +59,7 @@ window.translations.id = {
     enabled: "AKTIF",
     health: "STATUS",
     accountEmail: "AKUN (EMAIL)",
+    provider: "PENYEDIA",
     source: "SUMBER",
     projectId: "PROJECT ID",
     sessionState: "STATUS SESI",
@@ -89,6 +90,7 @@ window.translations.id = {
     // Dashboard
     linkedAccounts: "Akun Terhubung",
     noSignal: "TIDAK ADA SINYAL",
+    noModelsDesc: "Tidak ada data model. Tambahkan akun untuk melihat model dan informasi kuota yang tersedia.",
     establishingUplink: "MENGHUBUNGKAN...",
     goToAccounts: "Lihat Akun",
 
@@ -237,6 +239,8 @@ window.translations.id = {
     timeM: "m",
     familyClaude: "Claude",
     familyGemini: "Gemini",
+    familyGpt: "GPT",
+    familyO1: "Seri O",
     familyOther: "Lainnya",
     enabledStatus: "diaktifkan",
     disabledStatus: "dinonaktifkan",
@@ -253,8 +257,8 @@ window.translations.id = {
     allCaps: "SEMUA",
     claudeCaps: "CLAUDE",
     geminiCaps: "GEMINI",
-
-    // System Info
+    gptCaps: "GPT",
+    o1Caps: "SERI O",
     systemInfo: "Informasi Sistem",
     refresh: "Refresh",
     runtimeConfig: "Konfigurasi Runtime",

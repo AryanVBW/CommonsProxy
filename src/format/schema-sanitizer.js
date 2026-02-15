@@ -486,8 +486,16 @@ function flattenTypeArrays(schema, nullableProps = null, currentPropName = null)
  * Uses allowlist approach - only permit known-safe JSON Schema features.
  * Converts "const" to equivalent "enum" for compatibility.
  * Generates placeholder schema for empty tool schemas.
+ * @param {Object} schema - Schema to sanitize
+ * @param {number} [depth=0] - Current recursion depth (internal)
  */
-export function sanitizeSchema(schema) {
+export function sanitizeSchema(schema, depth = 0) {
+    // Prevent infinite recursion from circular schemas
+    const MAX_DEPTH = 50;
+    if (depth > MAX_DEPTH) {
+        return { type: 'object', description: 'Schema too deeply nested (truncated)' };
+    }
+
     if (!schema || typeof schema !== 'object') {
         // Empty/missing schema - generate placeholder with reason property
         return {
@@ -530,16 +538,16 @@ export function sanitizeSchema(schema) {
         if (key === 'properties' && value && typeof value === 'object') {
             sanitized.properties = {};
             for (const [propKey, propValue] of Object.entries(value)) {
-                sanitized.properties[propKey] = sanitizeSchema(propValue);
+                sanitized.properties[propKey] = sanitizeSchema(propValue, depth + 1);
             }
         } else if (key === 'items' && value && typeof value === 'object') {
             if (Array.isArray(value)) {
-                sanitized.items = value.map(item => sanitizeSchema(item));
+                sanitized.items = value.map(item => sanitizeSchema(item, depth + 1));
             } else {
-                sanitized.items = sanitizeSchema(value);
+                sanitized.items = sanitizeSchema(value, depth + 1);
             }
         } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            sanitized[key] = sanitizeSchema(value);
+            sanitized[key] = sanitizeSchema(value, depth + 1);
         } else {
             sanitized[key] = value;
         }
@@ -590,11 +598,18 @@ function toGoogleType(type) {
  * Uses a multi-phase pipeline matching opencode-cloudcode-auth approach.
  *
  * @param {Object} schema - The JSON schema to clean
+ * @param {number} [depth=0] - Current recursion depth (internal)
  * @returns {Object} Cleaned schema safe for Gemini API
  */
-export function cleanSchema(schema) {
+export function cleanSchema(schema, depth = 0) {
+    // Prevent infinite recursion from circular schemas
+    const MAX_DEPTH = 50;
+    if (depth > MAX_DEPTH) {
+        return { type: 'STRING', description: 'Schema too deeply nested (truncated)' };
+    }
+
     if (!schema || typeof schema !== 'object') return schema;
-    if (Array.isArray(schema)) return schema.map(cleanSchema);
+    if (Array.isArray(schema)) return schema.map(s => cleanSchema(s, depth + 1));
 
     // Phase 1: Convert $refs to hints
     let result = convertRefsToHints(schema);
@@ -641,16 +656,16 @@ export function cleanSchema(schema) {
     if (result.properties && typeof result.properties === 'object') {
         const newProps = {};
         for (const [key, value] of Object.entries(result.properties)) {
-            newProps[key] = cleanSchema(value);
+            newProps[key] = cleanSchema(value, depth + 1);
         }
         result.properties = newProps;
     }
 
     if (result.items) {
         if (Array.isArray(result.items)) {
-            result.items = result.items.map(cleanSchema);
+            result.items = result.items.map(item => cleanSchema(item, depth + 1));
         } else if (typeof result.items === 'object') {
-            result.items = cleanSchema(result.items);
+            result.items = cleanSchema(result.items, depth + 1);
         }
     }
 

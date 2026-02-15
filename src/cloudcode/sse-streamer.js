@@ -260,6 +260,156 @@ export async function* streamSSEResponse(response, originalModel) {
         }
     }
 
+    // Flush any remaining decoder bytes (TextDecoder may buffer partial multi-byte chars)
+    buffer += decoder.decode();
+
+    // Process any remaining data left in the buffer after the read loop exits.
+    // The last SSE chunk may not end with a newline, so buffer can hold a final data line
+    // containing finishReason and usageMetadata that would otherwise be lost.
+    if (buffer.trim()) {
+        const remainingLines = buffer.split('\n');
+        for (const line of remainingLines) {
+            if (!line.startsWith('data:')) continue;
+
+            const jsonText = line.slice(5).trim();
+            if (!jsonText) continue;
+
+            try {
+                const data = JSON.parse(jsonText);
+                const innerResponse = data.response || data;
+
+                const usage = innerResponse.usageMetadata;
+                if (usage) {
+                    inputTokens = usage.promptTokenCount || inputTokens;
+                    outputTokens = usage.candidatesTokenCount || outputTokens;
+                    cacheReadTokens = usage.cachedContentTokenCount || cacheReadTokens;
+                }
+
+                const candidates = innerResponse.candidates || [];
+                const firstCandidate = candidates[0] || {};
+
+                if (firstCandidate.finishReason && !stopReason) {
+                    if (firstCandidate.finishReason === 'MAX_TOKENS') {
+                        stopReason = 'max_tokens';
+                    } else if (firstCandidate.finishReason === 'STOP') {
+                        stopReason = 'end_turn';
+                    }
+                }
+
+                // Process any remaining content parts
+                const content = firstCandidate.content || {};
+                const parts = content.parts || [];
+                for (const part of parts) {
+                    if (part.thought === true) {
+                        const text = part.text || '';
+                        const signature = part.thoughtSignature || '';
+
+                        if (currentBlockType !== 'thinking') {
+                            if (currentBlockType !== null) {
+                                yield { type: 'content_block_stop', index: blockIndex };
+                                blockIndex++;
+                            }
+                            currentBlockType = 'thinking';
+                            currentThinkingSignature = '';
+                            yield {
+                                type: 'content_block_start',
+                                index: blockIndex,
+                                content_block: { type: 'thinking', thinking: '' }
+                            };
+                        }
+
+                        if (signature && signature.length >= MIN_SIGNATURE_LENGTH) {
+                            currentThinkingSignature = signature;
+                            const modelFamily = getModelFamily(originalModel);
+                            cacheThinkingSignature(signature, modelFamily);
+                        }
+
+                        if (!hasEmittedStart) {
+                            hasEmittedStart = true;
+                            yield {
+                                type: 'message_start',
+                                message: {
+                                    id: messageId,
+                                    type: 'message',
+                                    role: 'assistant',
+                                    content: [],
+                                    model: originalModel,
+                                    stop_reason: null,
+                                    stop_sequence: null,
+                                    usage: {
+                                        input_tokens: inputTokens - cacheReadTokens,
+                                        output_tokens: 0,
+                                        cache_read_input_tokens: cacheReadTokens,
+                                        cache_creation_input_tokens: 0
+                                    }
+                                }
+                            };
+                        }
+
+                        yield {
+                            type: 'content_block_delta',
+                            index: blockIndex,
+                            delta: { type: 'thinking_delta', thinking: text }
+                        };
+
+                    } else if (part.text !== undefined && part.text !== '') {
+                        if (currentBlockType !== 'text') {
+                            if (currentBlockType === 'thinking' && currentThinkingSignature) {
+                                yield {
+                                    type: 'content_block_delta',
+                                    index: blockIndex,
+                                    delta: { type: 'signature_delta', signature: currentThinkingSignature }
+                                };
+                                currentThinkingSignature = '';
+                            }
+                            if (currentBlockType !== null) {
+                                yield { type: 'content_block_stop', index: blockIndex };
+                                blockIndex++;
+                            }
+                            currentBlockType = 'text';
+
+                            if (!hasEmittedStart) {
+                                hasEmittedStart = true;
+                                yield {
+                                    type: 'message_start',
+                                    message: {
+                                        id: messageId,
+                                        type: 'message',
+                                        role: 'assistant',
+                                        content: [],
+                                        model: originalModel,
+                                        stop_reason: null,
+                                        stop_sequence: null,
+                                        usage: {
+                                            input_tokens: inputTokens - cacheReadTokens,
+                                            output_tokens: 0,
+                                            cache_read_input_tokens: cacheReadTokens,
+                                            cache_creation_input_tokens: 0
+                                        }
+                                    }
+                                };
+                            }
+
+                            yield {
+                                type: 'content_block_start',
+                                index: blockIndex,
+                                content_block: { type: 'text', text: '' }
+                            };
+                        }
+
+                        yield {
+                            type: 'content_block_delta',
+                            index: blockIndex,
+                            delta: { type: 'text_delta', text: part.text }
+                        };
+                    }
+                }
+            } catch (parseError) {
+                logger.warn('[CloudCode] SSE parse error (remaining buffer):', parseError.message);
+            }
+        }
+    }
+
     // Handle no content received - throw error to trigger retry in streaming-handler
     if (!hasEmittedStart) {
         logger.warn('[CloudCode] No content parts received, throwing for retry');

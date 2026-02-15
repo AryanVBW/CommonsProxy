@@ -93,7 +93,7 @@ document.addEventListener('alpine:init', () => {
             this.toast = { message, type, id };
             setTimeout(() => {
                 if (this.toast && this.toast.id === id) this.toast = null;
-            }, 3000);
+            }, window.AppConstants?.UI?.TOAST_DURATION ?? 3000);
         }
     });
 });

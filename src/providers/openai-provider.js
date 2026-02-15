@@ -6,6 +6,35 @@
  */
 
 import BaseProvider from './base-provider.js';
+import crypto from 'crypto';
+
+/**
+ * Check if an OpenAI model ID is a chat/reasoning model (not embeddings, tts, whisper, dall-e, etc.)
+ * @param {string} id - Model ID
+ * @returns {boolean}
+ */
+function isOpenAIChatModel(id) {
+    const lower = id.toLowerCase();
+    return lower.includes('gpt') ||
+           lower.startsWith('o1') ||
+           lower.startsWith('o3') ||
+           lower.startsWith('o4') ||
+           lower.startsWith('chatgpt');
+}
+
+/**
+ * Get the model family for an OpenAI model
+ * @param {string} id - Model ID
+ * @returns {string} Family name
+ */
+function getOpenAIModelFamily(id) {
+    const lower = id.toLowerCase();
+    if (lower.startsWith('o1')) return 'o1';
+    if (lower.startsWith('o3')) return 'o3';
+    if (lower.startsWith('o4')) return 'o4';
+    if (lower.startsWith('chatgpt')) return 'chatgpt';
+    return 'gpt';
+}
 
 export class OpenAIProvider extends BaseProvider {
     constructor(config = {}) {
@@ -41,8 +70,9 @@ export class OpenAIProvider extends BaseProvider {
                 return { valid: false, error: `API key validation failed: ${error}` };
             }
 
-            // OpenAI doesn't provide email in API, use a placeholder
-            const email = account.email || `openai-${account.apiKey.slice(0, 8)}`;
+            // OpenAI doesn't provide email in API, use a hash-based identifier
+            const keyHash = crypto.createHash('sha256').update(account.apiKey).digest('hex').slice(0, 8);
+            const email = account.email || `openai-${keyHash}`;
 
             return { valid: true, email };
         } catch (error) {
@@ -91,10 +121,10 @@ export class OpenAIProvider extends BaseProvider {
             const data = await response.json();
             const models = {};
 
-            // Create default quota entries for GPT models
+            // Create default quota entries for OpenAI chat models
             if (data.data && Array.isArray(data.data)) {
                 data.data
-                    .filter(model => model.id.includes('gpt'))
+                    .filter(model => isOpenAIChatModel(model.id))
                     .forEach(model => {
                         models[model.id] = {
                             remainingFraction: 1.0, // Default: full quota (no easy API to check actual)
@@ -172,11 +202,11 @@ export class OpenAIProvider extends BaseProvider {
             const data = await response.json();
             if (data.data && Array.isArray(data.data)) {
                 return data.data
-                    .filter(model => model.id.includes('gpt'))
+                    .filter(model => isOpenAIChatModel(model.id))
                     .map(model => ({
                         id: model.id,
                         name: model.id,
-                        family: 'gpt'
+                        family: getOpenAIModelFamily(model.id)
                     }));
             }
 

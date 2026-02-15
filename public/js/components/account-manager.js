@@ -74,83 +74,36 @@ window.Components.accountManager = () => ({
             const store = Alpine.store('global');
             store.showToast(store.t('refreshingAccount', { email }), 'info');
 
-            const { response, newPassword } = await window.utils.request(
-                `/api/accounts/${encodeURIComponent(email)}/refresh`,
-                { method: 'POST' },
-                store.webuiPassword
-            );
-            if (newPassword) store.webuiPassword = newPassword;
-
-            const data = await response.json();
-            if (data.status === 'ok') {
+            const result = await window.AccountActions.refreshAccount(email);
+            if (result.success) {
                 store.showToast(store.t('refreshedAccount', { email }), 'success');
-                Alpine.store('data').fetchData();
             } else {
-                throw new Error(data.error || store.t('refreshFailed'));
+                throw new Error(result.error || store.t('refreshFailed'));
             }
         }, this, 'refreshing', { errorMessage: 'Failed to refresh account' });
     },
 
     async toggleAccount(email, enabled) {
         const store = Alpine.store('global');
-        const password = store.webuiPassword;
 
-        // Optimistic update: immediately update UI
-        const dataStore = Alpine.store('data');
-        const account = dataStore.accounts.find(a => a.email === email);
-        if (account) {
-            account.enabled = enabled;
-        }
-
-        try {
-            const { response, newPassword } = await window.utils.request(`/api/accounts/${encodeURIComponent(email)}/toggle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            }, password);
-            if (newPassword) store.webuiPassword = newPassword;
-
-            const data = await response.json();
-            if (data.status === 'ok') {
-                const status = enabled ? store.t('enabledStatus') : store.t('disabledStatus');
-                store.showToast(store.t('accountToggled', { email, status }), 'success');
-                // Refresh to confirm server state
-                await dataStore.fetchData();
-            } else {
-                store.showToast(data.error || store.t('toggleFailed'), 'error');
-                // Rollback optimistic update on error
-                if (account) {
-                    account.enabled = !enabled;
-                }
-                await dataStore.fetchData();
-            }
-        } catch (e) {
-            store.showToast(store.t('toggleFailed') + ': ' + e.message, 'error');
-            // Rollback optimistic update on error
-            if (account) {
-                account.enabled = !enabled;
-            }
-            await dataStore.fetchData();
+        const result = await window.AccountActions.toggleAccount(email, enabled);
+        if (result.success) {
+            const status = enabled ? store.t('enabledStatus') : store.t('disabledStatus');
+            store.showToast(store.t('accountToggled', { email, status }), 'success');
+        } else {
+            store.showToast(result.error || store.t('toggleFailed'), 'error');
         }
     },
 
     async fixAccount(email) {
         const store = Alpine.store('global');
         store.showToast(store.t('reauthenticating', { email }), 'info');
-        const password = store.webuiPassword;
-        try {
-            const urlPath = `/api/auth/url?email=${encodeURIComponent(email)}`;
-            const { response, newPassword } = await window.utils.request(urlPath, {}, password);
-            if (newPassword) store.webuiPassword = newPassword;
 
-            const data = await response.json();
-            if (data.status === 'ok') {
-                window.open(data.url, 'google_oauth', 'width=600,height=700,scrollbars=yes');
-            } else {
-                store.showToast(data.error || store.t('authUrlFailed'), 'error');
-            }
-        } catch (e) {
-            store.showToast(store.t('authUrlFailed') + ': ' + e.message, 'error');
+        const result = await window.AccountActions.getFixAccountUrl(email);
+        if (result.success) {
+            window.open(result.url, 'google_oauth', 'width=600,height=700,scrollbars=yes');
+        } else {
+            store.showToast(result.error || store.t('authUrlFailed'), 'error');
         }
     },
 
@@ -164,21 +117,13 @@ window.Components.accountManager = () => ({
         return await window.ErrorHandler.withLoading(async () => {
             const store = Alpine.store('global');
 
-            const { response, newPassword } = await window.utils.request(
-                `/api/accounts/${encodeURIComponent(email)}`,
-                { method: 'DELETE' },
-                store.webuiPassword
-            );
-            if (newPassword) store.webuiPassword = newPassword;
-
-            const data = await response.json();
-            if (data.status === 'ok') {
+            const result = await window.AccountActions.deleteAccount(email);
+            if (result.success) {
                 store.showToast(store.t('deletedAccount', { email }), 'success');
-                Alpine.store('data').fetchData();
                 document.getElementById('delete_account_modal').close();
                 this.deleteTarget = '';
             } else {
-                throw new Error(data.error || store.t('deleteFailed'));
+                throw new Error(result.error || store.t('deleteFailed'));
             }
         }, this, 'deleting', { errorMessage: 'Failed to delete account' });
     },
@@ -187,19 +132,11 @@ window.Components.accountManager = () => ({
         return await window.ErrorHandler.withLoading(async () => {
             const store = Alpine.store('global');
 
-            const { response, newPassword } = await window.utils.request(
-                '/api/accounts/reload',
-                { method: 'POST' },
-                store.webuiPassword
-            );
-            if (newPassword) store.webuiPassword = newPassword;
-
-            const data = await response.json();
-            if (data.status === 'ok') {
+            const result = await window.AccountActions.reloadAccounts();
+            if (result.success) {
                 store.showToast(store.t('accountsReloaded'), 'success');
-                Alpine.store('data').fetchData();
             } else {
-                throw new Error(data.error || store.t('reloadFailed'));
+                throw new Error(result.error || store.t('reloadFailed'));
             }
         }, this, 'reloading', { errorMessage: 'Failed to reload accounts' });
     },

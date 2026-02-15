@@ -330,8 +330,8 @@ document.addEventListener('alpine:init', () => {
             const lower = modelId.toLowerCase();
             if (lower.includes('claude')) return 'claude';
             if (lower.includes('gemini')) return 'gemini';
-            if (lower.includes('gpt')) return 'gpt';
-            if (lower.startsWith('o1') || lower.startsWith('o3')) return 'o1';
+            if (lower.includes('gpt') || lower.includes('chatgpt')) return 'gpt';
+            if (lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4')) return 'o1';
             return 'other';
         },
 

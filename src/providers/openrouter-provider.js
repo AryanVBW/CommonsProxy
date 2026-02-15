@@ -12,6 +12,7 @@
  */
 
 import BaseProvider from './base-provider.js';
+import crypto from 'crypto';
 
 export class OpenRouterProvider extends BaseProvider {
     constructor(config = {}) {
@@ -50,8 +51,9 @@ export class OpenRouterProvider extends BaseProvider {
 
             const data = await response.json();
 
-            // Use the label from the key data, or generate an identifier
-            const email = account.email || data.data?.label || `openrouter-${account.apiKey.slice(-8)}`;
+            // Use the label from the key data, or a hash-based identifier
+            const keyHash = crypto.createHash('sha256').update(account.apiKey).digest('hex').slice(0, 8);
+            const email = account.email || data.data?.label || `openrouter-${keyHash}`;
 
             return { valid: true, email };
         } catch (error) {

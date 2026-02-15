@@ -85,6 +85,20 @@
                         : 'text-gray-400 hover:text-white hover:bg-space-700 hover:border-space-border'"
                     @click="$store.data.filters.family = 'gemini'; $store.data.computeQuotaRows()"
                     x-text="$store.global.t('geminiCaps')">GEMINI</button>
+                <button
+                    class="join-item btn btn-xs h-full flex-1 md:flex-none px-6 border-space-border/50 bg-space-800 transition-all font-medium text-[10px] tracking-wide"
+                    :class="$store.data.filters.family === 'gpt'
+                        ? 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/60 shadow-lg shadow-neon-cyan/10'
+                        : 'text-gray-400 hover:text-white hover:bg-space-700 hover:border-space-border'"
+                    @click="$store.data.filters.family = 'gpt'; $store.data.computeQuotaRows()"
+                    x-text="$store.global.t('gptCaps')">GPT</button>
+                <button
+                    class="join-item btn btn-xs h-full flex-1 md:flex-none px-6 border-space-border/50 bg-space-800 transition-all font-medium text-[10px] tracking-wide"
+                    :class="$store.data.filters.family === 'o1'
+                        ? 'bg-neon-yellow/20 text-neon-yellow border-neon-yellow/60 shadow-lg shadow-neon-yellow/10'
+                        : 'text-gray-400 hover:text-white hover:bg-space-700 hover:border-space-border'"
+                    @click="$store.data.filters.family = 'o1'; $store.data.computeQuotaRows()"
+                    x-text="$store.global.t('o1Caps')">O1</button>
             </div>
 
             <!-- Show Hidden Toggle -->
@@ -311,7 +325,8 @@
                             <h3 class="text-xl font-semibold text-gray-400" x-text="$store.global.t('noSignal')">
                                 NO SIGNAL DETECTED
                             </h3>
-                            <p class="text-sm text-gray-600 max-w-md leading-relaxed">
+                            <p class="text-sm text-gray-600 max-w-md leading-relaxed"
+                                x-text="$store.global.t('noModelsDesc')">
                                 No model data available. Add accounts to see available models and quota information.
                             </p>
                             <button class="btn bg-neon-purple hover:bg-purple-600 border-none text-white btn-sm gap-2 shadow-lg shadow-neon-purple/20"

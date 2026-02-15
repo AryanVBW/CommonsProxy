@@ -9,12 +9,13 @@ import {
     TOKEN_REFRESH_INTERVAL_MS,
     LOAD_CODE_ASSIST_ENDPOINTS,
     LOAD_CODE_ASSIST_HEADERS,
+    CLIENT_METADATA,
     DEFAULT_PROJECT_ID
 } from '../constants.js';
 import { refreshAccessToken, parseRefreshParts, formatRefreshParts } from '../auth/oauth.js';
 import { getAuthStatus } from '../auth/database.js';
 import { logger } from '../utils/logger.js';
-import { isNetworkError } from '../utils/helpers.js';
+import { isNetworkError, throttledFetch } from '../utils/helpers.js';
 import { onboardUser, getDefaultTierId } from './onboarding.js';
 import { parseTierId } from '../cloudcode/model-api.js';
 import { getProviderForAccount } from '../providers/index.js';
@@ -130,6 +131,13 @@ export async function getTokenForAccount(account, tokenCache, onInvalid, onSave)
  * @returns {Promise<string>} Project ID
  */
 export async function getProjectForAccount(account, token, projectCache, onSave = null) {
+    // Non-Google providers don't use Cloud Code projects — short-circuit
+    const providerId = account.provider || 'google';
+    if (providerId !== 'google') {
+        projectCache.set(account.email, null);
+        return null;
+    }
+
     // Check cache first
     const cached = projectCache.get(account.email);
     if (cached) {
@@ -223,25 +231,21 @@ export async function discoverProject(token, projectId = undefined) {
     let gotSuccessfulResponse = false;
     let loadCodeAssistData = null;
 
-    const metadata = {
-        ideType: 'IDE_UNSPECIFIED',
-        platform: 'PLATFORM_UNSPECIFIED',
-        pluginType: 'GEMINI'
-    };
+    const metadata = { ...CLIENT_METADATA };
     if (projectId) {
         metadata.duetProject = projectId;
     }
 
     for (const endpoint of LOAD_CODE_ASSIST_ENDPOINTS) {
         try {
-            const response = await fetch(`${endpoint}/v1internal:loadCodeAssist`, {
+            const response = await throttledFetch(`${endpoint}/v1internal:loadCodeAssist`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                     ...LOAD_CODE_ASSIST_HEADERS
                 },
-                body: JSON.stringify({ metadata })
+                body: JSON.stringify({ metadata, mode: 1 })
             });
 
             if (!response.ok) {
