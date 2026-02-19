@@ -1,6 +1,6 @@
 {
   "name": "commons-proxy",
-  "version": "2.1.0",
+  "version": "2.5.0",
   "description": "Universal AI proxy server with multi-provider support (Google Cloud Code, Anthropic, OpenAI, GitHub Models, GitHub Copilot, ChatGPT Plus/Pro, OpenRouter) - Anthropic-compatible API for Claude Code CLI",
   "main": "src/index.js",
   "type": "module",
